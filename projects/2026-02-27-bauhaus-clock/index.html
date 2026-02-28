@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bauhaus Modular World Clock</title>
+<meta name="description" content="A configurable world clock built on Bauhaus design principles. Every parameter stays within strict geometric constraints.">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+  :root {
+    /* Palette: Classic Bauhaus */
+    --bg: #1a1a1a;
+    --surface: #232323;
+    --border: #333;
+    --text: #e8e4dc;
+    --text-muted: #888;
+    --primary: #E4572E;
+    --secondary: #2D7DD2;
+    --tertiary: #F4D35E;
+    --accent-green: #52B788;
+    --hour-hand: #E4572E;
+    --minute-hand: #e8e4dc;
+    --second-hand: #F4D35E;
+    --face-bg: #1a1a1a;
+    --face-border: #444;
+    --marker-color: #e8e4dc;
+    --center-dot: #E4572E;
+  }
+
+  html { font-size: 16px; }
+
+  body {
+    font-family: 'DM Mono', 'IBM Plex Mono', 'SF Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* Back to Lab link */
+  .back-link {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 100;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: color 0.2s;
+    background: rgba(26,26,26,0.85);
+    padding: 0.4rem 0.7rem;
+    border-radius: 4px;
+    backdrop-filter: blur(8px);
+  }
+  .back-link:hover { color: var(--text); }
+
+  /* Header */
+  header {
+    text-align: center;
+    padding: 3rem 1.5rem 1.5rem;
+  }
+  header h1 {
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    font-weight: 800;
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
+    letter-spacing: -0.02em;
+    margin-bottom: 0.5rem;
+  }
+  header p {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    max-width: 50ch;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+
+  /* Clock Grid */
+  .clock-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 2rem;
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    flex: 1;
+    width: 100%;
+    align-content: start;
+  }
+
+  .clock-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.5rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: transform 0.2s ease, border-color 0.3s;
+  }
+  .clock-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--primary);
+  }
+
+  .clock-label {
+    text-align: center;
+  }
+  .clock-label .city {
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.02em;
+  }
+  .clock-label .tz-abbr {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-top: 0.15rem;
+  }
+  .clock-label .digital {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* SVG Clock */
+  .clock-svg {
+    width: 180px;
+    height: 180px;
+  }
+
+  /* Config Panel */
+  .config-toggle {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 99;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .config-toggle:hover {
+    border-color: var(--primary);
+    transform: scale(1.05);
+  }
+  .config-toggle[aria-expanded="true"] {
+    transform: rotate(45deg);
+  }
+
+  .config-panel {
+    position: fixed;
+    bottom: 5rem;
+    right: 1.5rem;
+    z-index: 98;
+    width: 300px;
+    max-height: 70vh;
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    display: none;
+    flex-direction: column;
+    gap: 1rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .config-panel.open { display: flex; }
+
+  .config-panel h3 {
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.5rem;
+  }
+
+  .config-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .config-group label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+  }
+  .config-group select,
+  .config-group input[type="color"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .config-group select:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+  .config-group input[type="color"] {
+    width: 100%;
+    height: 32px;
+    padding: 2px;
+    cursor: pointer;
+  }
+
+  .palette-swatches {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .swatch:hover, .swatch.active {
+    border-color: var(--text);
+    transform: scale(1.15);
+  }
+
+  .timezone-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .tz-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.3rem 0.5rem;
+  }
+  .tz-chip button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    line-height: 1;
+    padding: 0;
+  }
+  .tz-chip button:hover { color: var(--primary); }
+
+  .add-tz {
+    display: flex;
+    gap: 0.3rem;
+  }
+  .add-tz select {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.3rem 0.4rem;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.75rem;
+  }
+  .add-tz button {
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.3rem 0.7rem;
+    font-family: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .add-tz button:hover { opacity: 0.85; }
+
+  /* Date bar */
+  .date-bar {
+    text-align: center;
+    padding: 1rem;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    .clock-grid { gap: 1.25rem; padding: 1rem; }
+    .clock-svg { width: 150px; height: 150px; }
+    .config-panel { width: calc(100vw - 2rem); right: 1rem; }
+    header { padding: 2rem 1rem 1rem; }
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<a class="back-link" href="../../">← Back to Lab</a>
+
+<header>
+  <h1>Bauhaus Modular World Clock</h1>
+  <p>A configurable world clock built on Bauhaus design principles. Every parameter — palette, face shape, hand style, layout — stays within strict geometric constraints.</p>
+</header>
+
+<div class="date-bar" id="dateBar"></div>
+<div class="clock-grid" id="clockGrid"></div>
+
+<button class="config-toggle" id="configToggle" aria-expanded="false" aria-label="Open configuration panel">+</button>
+
+<div class="config-panel" id="configPanel">
+  <h3>Configuration</h3>
+
+  <div class="config-group">
+    <label>Palette</label>
+    <div class="palette-swatches" id="paletteSwatches"></div>
+  </div>
+
+  <div class="config-group">
+    <label>Face Shape</label>
+    <select id="faceShape">
+      <option value="circle">Circle</option>
+      <option value="square">Square</option>
+      <option value="hexagon">Hexagon</option>
+    </select>
+  </div>
+
+  <div class="config-group">
+    <label>Hand Style</label>
+    <select id="handStyle">
+      <option value="line">Line (Classic)</option>
+      <option value="triangle">Triangle (Bauhaus)</option>
+      <option value="dot">Dot Trail</option>
+    </select>
+  </div>
+
+  <div class="config-group">
+    <label>Marker Style</label>
+    <select id="markerStyle">
+      <option value="tick">Tick Marks</option>
+      <option value="dot">Dots</option>
+      <option value="number">Numbers</option>
+      <option value="none">None</option>
+    </select>
+  </div>
+
+  <div class="config-group">
+    <label>Show Seconds</label>
+    <select id="showSeconds">
+      <option value="hand">Hand</option>
+      <option value="ring">Ring Sweep</option>
+      <option value="none">None</option>
+    </select>
+  </div>
+
+  <div class="config-group">
+    <label>Time Zones</label>
+    <div class="timezone-list" id="tzList"></div>
+    <div class="add-tz">
+      <select id="tzAdd"></select>
+      <button id="tzAddBtn">Add</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // --- Palettes ---
+  const PALETTES = {
+    classic: {
+      name: 'Classic Bauhaus',
+      bg: '#1a1a1a', surface: '#232323', border: '#333',
+      text: '#e8e4dc', muted: '#888',
+      hour: '#E4572E', minute: '#e8e4dc', second: '#F4D35E',
+      face: '#1a1a1a', faceBorder: '#444', marker: '#e8e4dc', center: '#E4572E',
+      swatch: '#E4572E'
+    },
+    mondrian: {
+      name: 'Mondrian',
+      bg: '#f5f0e8', surface: '#fff', border: '#222',
+      text: '#111', muted: '#666',
+      hour: '#d40000', minute: '#111', second: '#ffd300',
+      face: '#f5f0e8', faceBorder: '#111', marker: '#111', center: '#003da5',
+      swatch: '#d40000'
+    },
+    klee: {
+      name: 'Klee',
+      bg: '#1c1b2e', surface: '#252440', border: '#3a3860',
+      text: '#e8dfd0', muted: '#8a84a8',
+      hour: '#c2532e', minute: '#e8dfd0', second: '#e8a838',
+      face: '#1c1b2e', faceBorder: '#4a4670', marker: '#e8dfd0', center: '#3e7c5f',
+      swatch: '#c2532e'
+    },
+    kandinsky: {
+      name: 'Kandinsky',
+      bg: '#f7f3eb', surface: '#fff', border: '#ddd',
+      text: '#222', muted: '#888',
+      hour: '#1a3a5c', minute: '#222', second: '#cc4422',
+      face: '#f7f3eb', faceBorder: '#bbb', marker: '#222', center: '#e89830',
+      swatch: '#1a3a5c'
+    },
+    albers: {
+      name: 'Albers',
+      bg: '#2b2b2b', surface: '#353535', border: '#454545',
+      text: '#d4c8a8', muted: '#888',
+      hour: '#c85a2c', minute: '#d4c8a8', second: '#d4a84c',
+      face: '#2b2b2b', faceBorder: '#555', marker: '#d4c8a8', center: '#c85a2c',
+      swatch: '#c85a2c'
+    }
+  };
+
+  // --- Available Timezones ---
+  const TZ_OPTIONS = [
+    { value: 'America/New_York', label: 'New York', abbr: 'ET' },
+    { value: 'America/Chicago', label: 'Chicago', abbr: 'CT' },
+    { value: 'America/Denver', label: 'Denver', abbr: 'MT' },
+    { value: 'America/Los_Angeles', label: 'Los Angeles', abbr: 'PT' },
+    { value: 'America/Anchorage', label: 'Anchorage', abbr: 'AKT' },
+    { value: 'Pacific/Honolulu', label: 'Honolulu', abbr: 'HT' },
+    { value: 'Europe/London', label: 'London', abbr: 'GMT' },
+    { value: 'Europe/Paris', label: 'Paris', abbr: 'CET' },
+    { value: 'Europe/Berlin', label: 'Berlin', abbr: 'CET' },
+    { value: 'Europe/Moscow', label: 'Moscow', abbr: 'MSK' },
+    { value: 'Asia/Dubai', label: 'Dubai', abbr: 'GST' },
+    { value: 'Asia/Kolkata', label: 'Mumbai', abbr: 'IST' },
+    { value: 'Asia/Shanghai', label: 'Shanghai', abbr: 'CST' },
+    { value: 'Asia/Tokyo', label: 'Tokyo', abbr: 'JST' },
+    { value: 'Asia/Seoul', label: 'Seoul', abbr: 'KST' },
+    { value: 'Australia/Sydney', label: 'Sydney', abbr: 'AEST' },
+    { value: 'Pacific/Auckland', label: 'Auckland', abbr: 'NZST' },
+    { value: 'America/Sao_Paulo', label: 'Sao Paulo', abbr: 'BRT' },
+    { value: 'Africa/Nairobi', label: 'Nairobi', abbr: 'EAT' },
+    { value: 'Asia/Singapore', label: 'Singapore', abbr: 'SGT' },
+  ];
+
+  // --- State ---
+  let state = {
+    palette: 'classic',
+    faceShape: 'circle',
+    handStyle: 'line',
+    markerStyle: 'tick',
+    showSeconds: 'hand',
+    timezones: ['America/New_York', 'Europe/London', 'Asia/Tokyo', 'America/Los_Angeles']
+  };
+
+  // Load from localStorage
+  try {
+    const saved = localStorage.getItem('bauhaus-clock-state');
+    if (saved) state = { ...state, ...JSON.parse(saved) };
+  } catch(e) {}
+
+  function saveState() {
+    try { localStorage.setItem('bauhaus-clock-state', JSON.stringify(state)); } catch(e) {}
+  }
+
+  // --- Helpers ---
+  function getTzInfo(tz) {
+    return TZ_OPTIONS.find(t => t.value === tz) || { value: tz, label: tz.split('/').pop().replace(/_/g, ' '), abbr: '' };
+  }
+
+  function getTimeInTz(tz) {
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour: 'numeric', minute: 'numeric', second: 'numeric',
+      hour12: false
+    }).formatToParts(now);
+    const get = type => parseInt(parts.find(p => p.type === type)?.value || '0');
+    return { h: get('hour') % 12, m: get('minute'), s: get('second'), h24: get('hour') };
+  }
+
+  function getDigitalTime(tz) {
+    return new Date().toLocaleTimeString('en-US', {
+      timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+    });
+  }
+
+  const p = () => PALETTES[state.palette];
+
+  // --- SVG Clock Rendering ---
+  function buildFacePath(cx, cy, r, shape) {
+    if (shape === 'square') {
+      const s = r * 0.88;
+      return `<rect x="${cx-s}" y="${cy-s}" width="${s*2}" height="${s*2}" rx="4"
+        fill="${p().face}" stroke="${p().faceBorder}" stroke-width="2"/>`;
+    }
+    if (shape === 'hexagon') {
+      let pts = [];
+      for (let i = 0; i < 6; i++) {
+        const a = Math.PI / 3 * i - Math.PI / 2;
+        pts.push(`${cx + r * 0.92 * Math.cos(a)},${cy + r * 0.92 * Math.sin(a)}`);
+      }
+      return `<polygon points="${pts.join(' ')}"
+        fill="${p().face}" stroke="${p().faceBorder}" stroke-width="2"/>`;
+    }
+    return `<circle cx="${cx}" cy="${cy}" r="${r}"
+      fill="${p().face}" stroke="${p().faceBorder}" stroke-width="2"/>`;
+  }
+
+  function buildMarkers(cx, cy, r, style) {
+    if (style === 'none') return '';
+    let svg = '';
+    for (let i = 0; i < 12; i++) {
+      const angle = (Math.PI * 2 * i) / 12 - Math.PI / 2;
+      const isQuarter = i % 3 === 0;
+      if (style === 'tick') {
+        const outerR = r * 0.88;
+        const innerR = isQuarter ? r * 0.72 : r * 0.78;
+        const x1 = cx + innerR * Math.cos(angle);
+        const y1 = cy + innerR * Math.sin(angle);
+        const x2 = cx + outerR * Math.cos(angle);
+        const y2 = cy + outerR * Math.sin(angle);
+        svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+          stroke="${p().marker}" stroke-width="${isQuarter ? 2.5 : 1.2}" stroke-linecap="round"/>`;
+      } else if (style === 'dot') {
+        const dotR = isQuarter ? 3.5 : 1.8;
+        const dr = r * 0.82;
+        svg += `<circle cx="${cx + dr * Math.cos(angle)}" cy="${cy + dr * Math.sin(angle)}"
+          r="${dotR}" fill="${p().marker}"/>`;
+      } else if (style === 'number') {
+        const nr = r * 0.74;
+        const num = i === 0 ? 12 : i;
+        svg += `<text x="${cx + nr * Math.cos(angle)}" y="${cy + nr * Math.sin(angle)}"
+          text-anchor="middle" dominant-baseline="central"
+          fill="${p().marker}" font-size="11" font-weight="700"
+          font-family="Inter, Helvetica Neue, sans-serif">${num}</text>`;
+      }
+    }
+    return svg;
+  }
+
+  function buildHand(cx, cy, angle, length, color, width, style) {
+    const rad = (angle * Math.PI) / 180 - Math.PI / 2;
+    const x = cx + length * Math.cos(rad);
+    const y = cy + length * Math.sin(rad);
+
+    if (style === 'triangle') {
+      const perpRad = rad + Math.PI / 2;
+      const baseW = width * 1.5;
+      const bx1 = cx + baseW * Math.cos(perpRad);
+      const by1 = cy + baseW * Math.sin(perpRad);
+      const bx2 = cx - baseW * Math.cos(perpRad);
+      const by2 = cy - baseW * Math.sin(perpRad);
+      return `<polygon points="${bx1},${by1} ${bx2},${by2} ${x},${y}" fill="${color}" opacity="0.9"/>`;
+    }
+    if (style === 'dot') {
+      const midX = cx + length * 0.5 * Math.cos(rad);
+      const midY = cy + length * 0.5 * Math.sin(rad);
+      return `
+        <circle cx="${midX}" cy="${midY}" r="${width}" fill="${color}" opacity="0.5"/>
+        <circle cx="${x}" cy="${y}" r="${width * 1.3}" fill="${color}"/>
+      `;
+    }
+    // line (default)
+    return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}"
+      stroke="${color}" stroke-width="${width}" stroke-linecap="round"/>`;
+  }
+
+  function buildSecondsRing(cx, cy, r, seconds) {
+    const circumference = 2 * Math.PI * r;
+    const progress = seconds / 60;
+    const dashLen = circumference * progress;
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none"
+      stroke="${p().second}" stroke-width="2" stroke-linecap="round"
+      stroke-dasharray="${dashLen} ${circumference - dashLen}"
+      transform="rotate(-90 ${cx} ${cy})" opacity="0.7"/>`;
+  }
+
+  function renderClock(container, tz) {
+    const { h, m, s } = getTimeInTz(tz);
+    const cx = 90, cy = 90, r = 80;
+
+    const hAngle = (h + m / 60) * 30;
+    const mAngle = (m + s / 60) * 6;
+    const sAngle = s * 6;
+
+    let svg = `<svg class="clock-svg" viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg">`;
+    svg += buildFacePath(cx, cy, r, state.faceShape);
+    svg += buildMarkers(cx, cy, r, state.markerStyle);
+
+    // Seconds
+    if (state.showSeconds === 'ring') {
+      svg += buildSecondsRing(cx, cy, r * 0.92, s);
+    }
+
+    // Hour hand
+    svg += buildHand(cx, cy, hAngle, r * 0.48, p().hour, 3.5, state.handStyle);
+    // Minute hand
+    svg += buildHand(cx, cy, mAngle, r * 0.68, p().minute, 2.5, state.handStyle);
+
+    // Second hand
+    if (state.showSeconds === 'hand') {
+      svg += buildHand(cx, cy, sAngle, r * 0.75, p().second, 1.2, 'line');
+    }
+
+    // Center dot
+    svg += `<circle cx="${cx}" cy="${cy}" r="4" fill="${p().center}"/>`;
+    svg += `</svg>`;
+
+    container.innerHTML = svg;
+  }
+
+  // --- Grid Rendering ---
+  const grid = document.getElementById('clockGrid');
+
+  function buildGrid() {
+    grid.innerHTML = '';
+    state.timezones.forEach(tz => {
+      const info = getTzInfo(tz);
+      const card = document.createElement('div');
+      card.className = 'clock-card';
+      card.innerHTML = `
+        <div class="clock-face" data-tz="${tz}"></div>
+        <div class="clock-label">
+          <div class="city">${info.label}</div>
+          <div class="tz-abbr">${info.abbr}</div>
+          <div class="digital" data-tz-digital="${tz}"></div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  // --- Tick ---
+  function tick() {
+    document.querySelectorAll('.clock-face').forEach(el => {
+      renderClock(el, el.dataset.tz);
+    });
+    document.querySelectorAll('[data-tz-digital]').forEach(el => {
+      el.textContent = getDigitalTime(el.dataset.tzDigital);
+    });
+
+    // Date bar
+    const dateBar = document.getElementById('dateBar');
+    dateBar.textContent = new Date().toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+  }
+
+  // --- Apply palette to CSS vars ---
+  function applyPalette() {
+    const pal = p();
+    const root = document.documentElement.style;
+    root.setProperty('--bg', pal.bg);
+    root.setProperty('--surface', pal.surface);
+    root.setProperty('--border', pal.border);
+    root.setProperty('--text', pal.text);
+    root.setProperty('--text-muted', pal.muted);
+    root.setProperty('--primary', pal.hour);
+  }
+
+  // --- Config Panel ---
+  const toggle = document.getElementById('configToggle');
+  const panel = document.getElementById('configPanel');
+
+  toggle.addEventListener('click', () => {
+    const open = panel.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', open);
+  });
+
+  // Palette swatches
+  function renderSwatches() {
+    const container = document.getElementById('paletteSwatches');
+    container.innerHTML = '';
+    Object.entries(PALETTES).forEach(([key, pal]) => {
+      const s = document.createElement('button');
+      s.className = 'swatch' + (state.palette === key ? ' active' : '');
+      s.style.background = pal.swatch;
+      s.title = pal.name;
+      s.setAttribute('aria-label', pal.name);
+      s.addEventListener('click', () => {
+        state.palette = key;
+        applyPalette();
+        renderSwatches();
+        saveState();
+      });
+      container.appendChild(s);
+    });
+  }
+
+  // Selects
+  document.getElementById('faceShape').value = state.faceShape;
+  document.getElementById('handStyle').value = state.handStyle;
+  document.getElementById('markerStyle').value = state.markerStyle;
+  document.getElementById('showSeconds').value = state.showSeconds;
+
+  document.getElementById('faceShape').addEventListener('change', e => {
+    state.faceShape = e.target.value; saveState();
+  });
+  document.getElementById('handStyle').addEventListener('change', e => {
+    state.handStyle = e.target.value; saveState();
+  });
+  document.getElementById('markerStyle').addEventListener('change', e => {
+    state.markerStyle = e.target.value; saveState();
+  });
+  document.getElementById('showSeconds').addEventListener('change', e => {
+    state.showSeconds = e.target.value; saveState();
+  });
+
+  // Timezone management
+  function renderTzList() {
+    const list = document.getElementById('tzList');
+    list.innerHTML = '';
+    state.timezones.forEach(tz => {
+      const info = getTzInfo(tz);
+      const chip = document.createElement('div');
+      chip.className = 'tz-chip';
+      chip.innerHTML = `<span>${info.label}</span><button aria-label="Remove ${info.label}">&times;</button>`;
+      chip.querySelector('button').addEventListener('click', () => {
+        state.timezones = state.timezones.filter(t => t !== tz);
+        buildGrid();
+        renderTzList();
+        saveState();
+      });
+      list.appendChild(chip);
+    });
+  }
+
+  // Timezone add dropdown
+  const tzAddSelect = document.getElementById('tzAdd');
+  TZ_OPTIONS.forEach(opt => {
+    const o = document.createElement('option');
+    o.value = opt.value;
+    o.textContent = opt.label;
+    tzAddSelect.appendChild(o);
+  });
+
+  document.getElementById('tzAddBtn').addEventListener('click', () => {
+    const val = tzAddSelect.value;
+    if (val && !state.timezones.includes(val)) {
+      state.timezones.push(val);
+      buildGrid();
+      renderTzList();
+      saveState();
+    }
+  });
+
+  // --- Init ---
+  applyPalette();
+  renderSwatches();
+  renderTzList();
+  buildGrid();
+  tick();
+  setInterval(tick, 1000);
+
+})();
+</script>
+</body>
+</html>

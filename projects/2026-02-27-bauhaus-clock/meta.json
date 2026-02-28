@@ -1,0 +1,11 @@
+{
+  "title": "Bauhaus Modular World Clock",
+  "date": "2026-02-27",
+  "dayNumber": 1,
+  "description": "A configurable world clock built on Bauhaus design principles. Every parameter — palette, face shape, hand style, layout — stays within strict geometric constraints.",
+  "tags": ["generative", "design-systems", "interactive", "svg"],
+  "tools": ["claude-code", "html", "css", "javascript", "svg"],
+  "accentColor": "#E4572E",
+  "liveUrl": null,
+  "sourceUrl": null
+}
