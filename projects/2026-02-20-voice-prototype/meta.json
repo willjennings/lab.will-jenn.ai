@@ -3,9 +3,17 @@
   "date": "2026-02-20",
   "dayNumber": 3,
   "description": "A voice-controlled conversational interface using the Web Speech API. Speak into your mic, see your words transcribed, and hear a simulated Copilot respond with synthesized speech.",
-  "tags": ["voice", "interactive", "prototype", "ai-ux"],
-  "tools": ["claude-code", "html", "css", "javascript"],
+  "tags": [
+    "voice"
+  ],
+  "tools": [
+    "claude-code",
+    "html",
+    "css",
+    "javascript"
+  ],
   "accentColor": "#2D7DD2",
   "liveUrl": null,
-  "sourceUrl": null
+  "sourceUrl": null,
+  "thumb": "thumb.png"
 }

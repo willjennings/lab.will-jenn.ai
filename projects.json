@@ -7,9 +7,7 @@
     "description": "A configurable world clock built on Bauhaus design principles. Every parameter — palette, face shape, hand style, layout — stays within strict geometric constraints.",
     "tags": [
       "generative",
-      "design-systems",
-      "interactive",
-      "svg"
+      "data-viz"
     ],
     "tools": [
       "claude-code",
@@ -19,7 +17,7 @@
       "svg"
     ],
     "accentColor": "#E4572E",
-    "thumb": null,
+    "thumb": "thumb.png",
     "liveUrl": null,
     "sourceUrl": null
   },
@@ -31,9 +29,7 @@
     "description": "Your writing style becomes a creature. Five renderers — Tangram, Glyph, Origami, Tamagotchi, Chernoff — transform communication patterns into unique procedural SVG animals. Explore 6 contacts across 2 pipelines.",
     "tags": [
       "generative",
-      "data-viz",
-      "svg",
-      "interactive"
+      "data-viz"
     ],
     "tools": [
       "claude-code",
@@ -44,7 +40,7 @@
       "python"
     ],
     "accentColor": "#52B788",
-    "thumb": null,
+    "thumb": "thumb.png",
     "liveUrl": null,
     "sourceUrl": null
   },
@@ -55,10 +51,7 @@
     "dayNumber": 7,
     "description": "A 3D origami crane from the HoloLens Holographic Academy, brought to the web with Three.js. The crane unfolds and animates in a multi-layered stage environment with orbit controls.",
     "tags": [
-      "3d",
-      "interactive",
-      "threejs",
-      "ar-heritage"
+      "3d"
     ],
     "tools": [
       "claude-code",
@@ -68,7 +61,7 @@
       "threejs"
     ],
     "accentColor": "#C85A2C",
-    "thumb": null,
+    "thumb": "thumb.png",
     "liveUrl": null,
     "sourceUrl": null
   },
@@ -80,9 +73,7 @@
     "description": "A low-poly 3D floating island scene with canyon columns, clouds, and tumbleweeds. Built with Three.js — orbit to explore, click to rotate the island. Anti-gravity desert aesthetic.",
     "tags": [
       "3d",
-      "interactive",
-      "generative",
-      "threejs"
+      "generative"
     ],
     "tools": [
       "claude-code",
@@ -92,7 +83,7 @@
       "threejs"
     ],
     "accentColor": "#E05437",
-    "thumb": null,
+    "thumb": "thumb.png",
     "liveUrl": null,
     "sourceUrl": null
   },
@@ -104,9 +95,7 @@
     "description": "Concentric rotating arcs visualize time across world cities. Click the map to select a timezone — brightness shifts with day/night cycles. Originally built in Processing (2014), ported to Canvas.",
     "tags": [
       "generative",
-      "interactive",
-      "data-viz",
-      "canvas"
+      "data-viz"
     ],
     "tools": [
       "claude-code",
@@ -116,7 +105,7 @@
       "canvas"
     ],
     "accentColor": "#E8A838",
-    "thumb": null,
+    "thumb": "thumb.png",
     "liveUrl": null,
     "sourceUrl": null
   },
@@ -127,10 +116,7 @@
     "dayNumber": 4,
     "description": "A voice enrollment prototype with Microsoft Fluent Design. Preview different voice options with audio playback, select your preferred voice, and confirm — a UX pattern for AI voice selection.",
     "tags": [
-      "voice",
-      "prototype",
-      "ai-ux",
-      "design-systems"
+      "voice"
     ],
     "tools": [
       "claude-code",
@@ -139,7 +125,7 @@
       "javascript"
     ],
     "accentColor": "#0078D4",
-    "thumb": null,
+    "thumb": "thumb.png",
     "liveUrl": null,
     "sourceUrl": null
   },
@@ -150,10 +136,7 @@
     "dayNumber": 3,
     "description": "A voice-controlled conversational interface using the Web Speech API. Speak into your mic, see your words transcribed, and hear a simulated Copilot respond with synthesized speech.",
     "tags": [
-      "voice",
-      "interactive",
-      "prototype",
-      "ai-ux"
+      "voice"
     ],
     "tools": [
       "claude-code",
@@ -162,7 +145,7 @@
       "javascript"
     ],
     "accentColor": "#2D7DD2",
-    "thumb": null,
+    "thumb": "thumb.png",
     "liveUrl": null,
     "sourceUrl": null
   },
@@ -173,10 +156,8 @@
     "dayNumber": 2,
     "description": "A portfolio site that dynamically adapts its visuals to real-time weather — rain particles, lightning flashes, floating clouds, falling snow — all driven by the OpenWeather API and geolocation.",
     "tags": [
-      "interactive",
       "generative",
-      "api",
-      "animation"
+      "data-viz"
     ],
     "tools": [
       "claude-code",
@@ -185,7 +166,7 @@
       "javascript"
     ],
     "accentColor": "#4A90D9",
-    "thumb": null,
+    "thumb": "thumb.png",
     "liveUrl": null,
     "sourceUrl": null
   }
