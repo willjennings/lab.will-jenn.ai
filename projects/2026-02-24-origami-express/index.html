@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Origami Express</title>
+<meta name="description" content="A 3D origami crane from the HoloLens Holographic Academy, brought to the web with Three.js. Procedurally generated paper crane with fold lines and animation.">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #111;
+    color: #e8e4dc;
+    font-family: 'DM Mono', 'SF Mono', monospace;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  canvas { display: block; }
+
+  .back-link {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 100;
+    font-size: 0.75rem;
+    color: #888;
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: color 0.2s;
+    background: rgba(17,17,17,0.85);
+    padding: 0.4rem 0.7rem;
+    border-radius: 4px;
+    backdrop-filter: blur(8px);
+  }
+  .back-link:hover { color: #e8e4dc; }
+
+  .overlay {
+    position: fixed;
+    bottom: 2rem;
+    left: 2rem;
+    z-index: 100;
+    pointer-events: none;
+  }
+  .overlay h1 {
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    font-weight: 800;
+    font-size: clamp(1.2rem, 3vw, 1.8rem);
+    letter-spacing: -0.02em;
+    color: #e8e4dc;
+    margin-bottom: 0.3rem;
+    opacity: 0.9;
+  }
+  .overlay p {
+    font-size: 0.7rem;
+    color: #888;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    opacity: 0.8;
+  }
+
+  @media (max-width: 600px) {
+    .overlay { bottom: 1rem; left: 1rem; }
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.162.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.162.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+
+<a class="back-link" href="../../">&larr; Back to Lab</a>
+
+<div class="overlay">
+  <h1>Origami Express</h1>
+  <p>From HoloLens to the Web</p>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ── Scene Setup ──────────────────────────────────────────────
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x111111);
+scene.fog = new THREE.FogExp2(0x111111, 0.06);
+
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 2, 5);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.minDistance = 2;
+controls.maxDistance = 12;
+controls.target.set(0, 1.2, 0);
+controls.update();
+
+// ── Lighting ─────────────────────────────────────────────────
+
+const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambient);
+
+const dirLight = new THREE.DirectionalLight(0xffeedd, 1.2);
+dirLight.position.set(5, 8, 5);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(2048, 2048);
+dirLight.shadow.camera.near = 0.5;
+dirLight.shadow.camera.far = 25;
+dirLight.shadow.camera.left = -6;
+dirLight.shadow.camera.right = 6;
+dirLight.shadow.camera.top = 6;
+dirLight.shadow.camera.bottom = -6;
+dirLight.shadow.bias = -0.0005;
+scene.add(dirLight);
+
+// Fill light from below-left (cool)
+const fillLight = new THREE.DirectionalLight(0x8899cc, 0.4);
+fillLight.position.set(-3, 0, 3);
+scene.add(fillLight);
+
+// Rim light from behind (warm)
+const rimLight = new THREE.DirectionalLight(0xffaa66, 0.5);
+rimLight.position.set(-2, 4, -5);
+scene.add(rimLight);
+
+// Point light under the crane for drama
+const pointLight = new THREE.PointLight(0xD94F5C, 0.6, 8);
+pointLight.position.set(0, 0.5, 0);
+scene.add(pointLight);
+
+
+// ── Origami Crane ────────────────────────────────────────────
+// Classic paper crane (tsuru) built from triangular faces.
+// Viewed from above, the body is a diamond. Wings sweep up and out.
+// Neck extends forward+up then bends down to a pointed head.
+// Tail extends backward+up. Two thin legs hang below.
+//
+// Coordinate system: Y=up, Z=forward (head direction), X=left/right (wings)
+
+function createCrane() {
+  const craneGroup = new THREE.Group();
+
+  // Paper-like material
+  const material = new THREE.MeshPhysicalMaterial({
+    color: 0xD94F5C,
+    side: THREE.DoubleSide,
+    roughness: 0.55,
+    metalness: 0.0,
+    clearcoat: 0.2,
+    clearcoatRoughness: 0.3,
+    flatShading: true,
+  });
+
+  // Inside/back material (lighter pink, visible through DoubleSide backface)
+  // Since DoubleSide uses same color on both sides, we simulate the
+  // two-tone by adding a slightly offset inner shell for the body
+  const innerMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0xF2BFC4,
+    side: THREE.BackSide,
+    roughness: 0.65,
+    metalness: 0.0,
+    flatShading: true,
+  });
+
+  // Helper: push a triangle (3 vertices) into a flat positions array
+  function tri(arr, a, b, c) {
+    arr.push(...a, ...b, ...c);
+  }
+
+  const positions = [];
+
+  // ── Key dimensions ──
+  // Body is a diamond elongated along Z. Creased at the center ridge.
+  const bodyLen = 0.5;    // half-length along Z (front and back)
+  const bodyW = 0.18;     // half-width
+  const crease = 0.07;    // ridge height (Y) at center
+
+  // Key body vertices
+  const NOSE  = [0, 0,  bodyLen];       // front tip of body diamond
+  const TAIL_TIP = [0, 0, -bodyLen];    // back tip of body diamond
+  const LEFT  = [-bodyW, 0, 0];         // left point of diamond
+  const RIGHT = [bodyW, 0, 0];          // right point of diamond
+  const TOP   = [0, crease, 0];         // center ridge top
+
+  // The body diamond is folded: top surface peaks at the center crease.
+  // Upper body: 4 triangles meeting at TOP
+  tri(positions, NOSE, LEFT, TOP);    // front-left upper
+  tri(positions, NOSE, TOP, RIGHT);   // front-right upper
+  tri(positions, TOP, LEFT, TAIL_TIP);  // back-left upper
+  tri(positions, TOP, TAIL_TIP, RIGHT); // back-right upper
+
+  // Lower body: 4 triangles (slight V shape underneath)
+  const BOTTOM = [0, -crease * 0.4, 0];
+  tri(positions, NOSE, BOTTOM, LEFT);
+  tri(positions, NOSE, RIGHT, BOTTOM);
+  tri(positions, BOTTOM, TAIL_TIP, LEFT);
+  tri(positions, BOTTOM, RIGHT, TAIL_TIP);
+
+  // ── Wings ──
+  // Each wing is a large triangular surface that sweeps out and UP from the body.
+  // Root is along the body's left/right edges. Tip is far out and up.
+  // Classic crane wings are broad, like big triangles.
+  const wingSpan = 1.1;
+  const wingUp = 0.45;
+  const wingFrontZ = bodyLen * 0.15;
+  const wingBackZ = -bodyLen * 0.15;
+
+  function buildWing(sign) {
+    // Wing root vertices (on the body)
+    const rootFront = [sign * bodyW, crease * 0.2, wingFrontZ];
+    const rootBack  = [sign * bodyW, crease * 0.2, wingBackZ];
+    const rootMid   = [sign * bodyW, crease * 0.5, 0];
+
+    // Wing tip
+    const tip = [sign * wingSpan, wingUp, 0];
+
+    // Wing mid-span point (for a more shaped wing)
+    const midSpan = [sign * wingSpan * 0.55, wingUp * 0.6, 0];
+    const midFront = [sign * wingSpan * 0.5, wingUp * 0.55, wingFrontZ * 0.6];
+    const midBack  = [sign * wingSpan * 0.5, wingUp * 0.55, wingBackZ * 0.6];
+
+    // Upper wing surface (3 main triangles)
+    tri(positions, rootFront, rootMid, midFront);
+    tri(positions, rootMid, rootBack, midBack);
+    tri(positions, rootMid, midFront, midBack);
+
+    // Outer wing (from midspan to tip)
+    tri(positions, midFront, tip, midBack);
+
+    // Lower wing surface (thin underside, slight offset down)
+    const dY = -0.012;
+    const rootFrontL = [rootFront[0], rootFront[1] + dY, rootFront[2]];
+    const rootBackL  = [rootBack[0],  rootBack[1] + dY,  rootBack[2]];
+    const rootMidL   = [rootMid[0],   rootMid[1] + dY,   rootMid[2]];
+    const tipL       = [tip[0],       tip[1] + dY,       tip[2]];
+    const midFrontL  = [midFront[0],  midFront[1] + dY,  midFront[2]];
+    const midBackL   = [midBack[0],   midBack[1] + dY,   midBack[2]];
+
+    tri(positions, rootMidL, rootFrontL, midFrontL);
+    tri(positions, rootBackL, rootMidL, midBackL);
+    tri(positions, midFrontL, rootMidL, midBackL);
+    tri(positions, tipL, midFrontL, midBackL);
+
+    // Wing edge strips (connect upper and lower surfaces at leading/trailing edge)
+    tri(positions, rootFront, midFront, rootFrontL);
+    tri(positions, midFront, midFrontL, rootFrontL);
+    tri(positions, rootBack, rootBackL, midBack);
+    tri(positions, midBack, rootBackL, midBackL);
+    // Tip edge
+    tri(positions, midFront, midFrontL, tip);
+    tri(positions, tip, midFrontL, tipL);
+    tri(positions, midBack, tip, midBackL);
+    tri(positions, tip, tipL, midBackL);
+  }
+
+  buildWing(-1); // left wing
+  buildWing(1);  // right wing
+
+  // ── Neck + Head ──
+  // The neck extends forward and upward from the body front tip,
+  // then the head bends downward to a sharp point (classic crane look).
+  const neckW = 0.035;
+  const neckH = 0.03;
+
+  // Neck base at body front
+  const neckBase = NOSE;
+  // Neck rises forward and up
+  const neckMid = [0, 0.28, bodyLen + 0.22];
+  // Head bends slightly downward for classic crane silhouette
+  const headTip = [0, 0.22, bodyLen + 0.48];
+
+  // Neck as a triangular prism
+  const nbl = [-neckW, neckBase[1], neckBase[2]];
+  const nbr = [neckW, neckBase[1], neckBase[2]];
+  const nbt = [0, neckBase[1] + neckH, neckBase[2]];
+
+  const nml = [-neckW * 0.8, neckMid[1], neckMid[2]];
+  const nmr = [neckW * 0.8, neckMid[1], neckMid[2]];
+  const nmt = [0, neckMid[1] + neckH * 0.7, neckMid[2]];
+
+  // Neck faces
+  tri(positions, nbl, nml, nbt);   // left
+  tri(positions, nbt, nml, nmt);
+  tri(positions, nbr, nbt, nmr);   // right
+  tri(positions, nbt, nmt, nmr);
+  tri(positions, nbl, nbr, nml);   // bottom
+  tri(positions, nbr, nmr, nml);
+
+  // Head: from neckMid to headTip (tapers to a point)
+  const hml = [-neckW * 0.6, neckMid[1] - 0.005, neckMid[2]];
+  const hmr = [neckW * 0.6, neckMid[1] - 0.005, neckMid[2]];
+  const hmt = [0, neckMid[1] + neckH * 0.5, neckMid[2]];
+
+  tri(positions, hml, headTip, hmt);  // left
+  tri(positions, hmr, hmt, headTip);  // right
+  tri(positions, hml, hmr, headTip);  // bottom
+  tri(positions, hmt, hml, hmr);      // back face cap (tiny)
+
+  // ── Tail ──
+  // Extends backward and slightly upward from body back tip.
+  // Thinner than neck, fans out slightly.
+  const tailW = 0.03;
+  const tailH = 0.025;
+
+  const tailMid = [0, 0.15, -bodyLen - 0.2];
+  const tailTip = [0, 0.2, -bodyLen - 0.45];
+
+  const tbl = [-tailW, TAIL_TIP[1], TAIL_TIP[2]];
+  const tbr = [tailW, TAIL_TIP[1], TAIL_TIP[2]];
+  const tbt = [0, TAIL_TIP[1] + tailH, TAIL_TIP[2]];
+
+  const tml = [-tailW * 0.7, tailMid[1], tailMid[2]];
+  const tmr = [tailW * 0.7, tailMid[1], tailMid[2]];
+  const tmt = [0, tailMid[1] + tailH * 0.6, tailMid[2]];
+
+  // Tail lower section
+  tri(positions, tbl, tml, tbt);
+  tri(positions, tbt, tml, tmt);
+  tri(positions, tbr, tbt, tmr);
+  tri(positions, tbt, tmt, tmr);
+  tri(positions, tbl, tbr, tml);
+  tri(positions, tbr, tmr, tml);
+
+  // Tail tip: fans out slightly for visual
+  const ttl = [-tailW * 1.2, tailTip[1] - 0.01, tailTip[2]];
+  const ttr = [tailW * 1.2, tailTip[1] - 0.01, tailTip[2]];
+  const ttt = [0, tailTip[1] + tailH * 0.3, tailTip[2]];
+
+  tri(positions, tml, ttl, tmt);
+  tri(positions, tmt, ttl, ttt);
+  tri(positions, tmr, tmt, ttr);
+  tri(positions, tmt, ttt, ttr);
+  tri(positions, tml, tmr, ttl);
+  tri(positions, tmr, ttr, ttl);
+
+  // ── Legs (two thin triangular shapes hanging below body center) ──
+  const legSpread = 0.06;
+  const legLen = 0.35;
+  const legW = 0.012;
+
+  for (const sign of [-1, 1]) {
+    const lx = sign * legSpread;
+    const legTop = [lx, BOTTOM[1], 0];
+    const legBot = [lx, BOTTOM[1] - legLen, -0.05];
+    const legL = [lx - legW, BOTTOM[1], 0.01];
+    const legR = [lx + legW, BOTTOM[1], 0.01];
+
+    tri(positions, legL, legBot, legR);
+    tri(positions, legL, legR, legTop);
+  }
+
+  // ── Build geometry ──
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.computeVertexNormals();
+
+  const craneMesh = new THREE.Mesh(geometry, material);
+  craneMesh.castShadow = true;
+  craneMesh.receiveShadow = true;
+  craneGroup.add(craneMesh);
+
+  // Inner shell for two-tone paper effect (BackSide rendering)
+  const innerMesh = new THREE.Mesh(geometry, innerMaterial);
+  craneGroup.add(innerMesh);
+
+  // ── Fold Lines (edges) ──
+  const edgesGeo = new THREE.EdgesGeometry(geometry, 20);
+  const edgesMat = new THREE.LineBasicMaterial({
+    color: 0x993344,
+    transparent: true,
+    opacity: 0.3,
+  });
+  const edges = new THREE.LineSegments(edgesGeo, edgesMat);
+  craneGroup.add(edges);
+
+  // ── Structural fold crease lines ──
+  const creaseVerts = [];
+  // Center ridge crease (the main fold line)
+  creaseVerts.push(...NOSE, ...TOP, ...TOP, ...TAIL_TIP);
+  // Body diamond side creases
+  creaseVerts.push(...NOSE, ...LEFT, ...NOSE, ...RIGHT);
+  creaseVerts.push(...TAIL_TIP, ...LEFT, ...TAIL_TIP, ...RIGHT);
+  // Body bottom crease
+  creaseVerts.push(...NOSE, ...BOTTOM, ...BOTTOM, ...TAIL_TIP);
+  // Neck line
+  creaseVerts.push(...neckBase, ...neckMid, ...neckMid, ...headTip);
+  // Tail line
+  creaseVerts.push(...TAIL_TIP, ...tailMid, ...tailMid, ...tailTip);
+
+  const creaseGeo = new THREE.BufferGeometry();
+  creaseGeo.setAttribute('position', new THREE.Float32BufferAttribute(creaseVerts, 3));
+  const creaseMat = new THREE.LineBasicMaterial({
+    color: 0xaa3344,
+    transparent: true,
+    opacity: 0.45,
+  });
+  const creaseLines = new THREE.LineSegments(creaseGeo, creaseMat);
+  craneGroup.add(creaseLines);
+
+  // Scale the crane up
+  craneGroup.scale.setScalar(2.0);
+
+  return craneGroup;
+}
+
+const crane = createCrane();
+crane.position.y = 1.8;
+scene.add(crane);
+
+
+// ── Stage Platform ───────────────────────────────────────────
+
+function createStage() {
+  const stageGroup = new THREE.Group();
+
+  // Main circular platform
+  const platformGeo = new THREE.CylinderGeometry(1.5, 1.6, 0.25, 48);
+  const platformMat = new THREE.MeshStandardMaterial({
+    color: 0x8B8B8B,
+    roughness: 0.7,
+    metalness: 0.1,
+  });
+  const platform = new THREE.Mesh(platformGeo, platformMat);
+  platform.receiveShadow = true;
+  platform.castShadow = true;
+  stageGroup.add(platform);
+
+  // Bevel ring
+  const bevelGeo = new THREE.TorusGeometry(1.55, 0.04, 8, 48);
+  const bevelMat = new THREE.MeshStandardMaterial({
+    color: 0x999999,
+    roughness: 0.4,
+    metalness: 0.3,
+  });
+  const bevel = new THREE.Mesh(bevelGeo, bevelMat);
+  bevel.rotation.x = Math.PI / 2;
+  bevel.position.y = 0.12;
+  stageGroup.add(bevel);
+
+  // Secondary smaller platform on top
+  const topGeo = new THREE.CylinderGeometry(1.0, 1.1, 0.06, 48);
+  const topMat = new THREE.MeshStandardMaterial({
+    color: 0x9a9a9a,
+    roughness: 0.5,
+    metalness: 0.15,
+  });
+  const topPlatform = new THREE.Mesh(topGeo, topMat);
+  topPlatform.position.y = 0.155;
+  topPlatform.receiveShadow = true;
+  stageGroup.add(topPlatform);
+
+  return stageGroup;
+}
+
+const stage = createStage();
+stage.position.y = -0.12;
+scene.add(stage);
+
+
+// ── Underworld (stalactites beneath the stage) ───────────────
+
+function createUnderworld() {
+  const underworldGroup = new THREE.Group();
+
+  const stalactiteMat = new THREE.MeshStandardMaterial({
+    color: 0x3a3a3a,
+    roughness: 0.85,
+    metalness: 0.05,
+    flatShading: true,
+  });
+
+  const configs = [
+    { x: 0,    z: 0,    r: 0.3,  h: 2.0 },
+    { x: 0.6,  z: 0.4,  r: 0.18, h: 1.4 },
+    { x:-0.5,  z: 0.5,  r: 0.2,  h: 1.6 },
+    { x: 0.4,  z:-0.6,  r: 0.22, h: 1.3 },
+    { x:-0.7,  z:-0.3,  r: 0.15, h: 1.1 },
+    { x:-0.2,  z:-0.7,  r: 0.25, h: 1.8 },
+    { x: 0.8,  z:-0.1,  r: 0.12, h: 0.9 },
+    { x:-0.9,  z: 0.2,  r: 0.14, h: 1.0 },
+    { x: 0.3,  z: 0.8,  r: 0.16, h: 1.2 },
+    { x:-0.4,  z:-0.5,  r: 0.1,  h: 0.7 },
+    { x: 1.0,  z: 0.3,  r: 0.1,  h: 0.8 },
+    { x:-0.1,  z: 0.9,  r: 0.13, h: 1.0 },
+  ];
+
+  for (const cfg of configs) {
+    const segs = 4 + Math.floor(cfg.r * 12);
+    const geo = new THREE.ConeGeometry(cfg.r, cfg.h, segs, 1);
+    const stalactite = new THREE.Mesh(geo, stalactiteMat);
+    stalactite.position.set(cfg.x, -(cfg.h / 2), cfg.z);
+    stalactite.rotation.x = Math.PI;
+    stalactite.castShadow = true;
+    underworldGroup.add(stalactite);
+  }
+
+  // Small rocky chunks around the base
+  for (let i = 0; i < 10; i++) {
+    const angle = (i / 10) * Math.PI * 2 + Math.random() * 0.3;
+    const dist = 0.9 + Math.random() * 0.5;
+    const rr = 0.05 + Math.random() * 0.08;
+    const rockGeo = new THREE.IcosahedronGeometry(rr, 0);
+    const rock = new THREE.Mesh(rockGeo, stalactiteMat);
+    rock.position.set(
+      Math.cos(angle) * dist,
+      -(0.15 + Math.random() * 0.4),
+      Math.sin(angle) * dist
+    );
+    underworldGroup.add(rock);
+  }
+
+  return underworldGroup;
+}
+
+const underworld = createUnderworld();
+underworld.position.y = -0.25;
+scene.add(underworld);
+
+
+// ── Floating particles ───────────────────────────────────────
+
+function createParticles() {
+  const count = 80;
+  const positions = new Float32Array(count * 3);
+
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 0.8 + Math.random() * 3.0;
+    const y = -1.0 + Math.random() * 5;
+    positions[i * 3]     = Math.cos(angle) * radius;
+    positions[i * 3 + 1] = y;
+    positions[i * 3 + 2] = Math.sin(angle) * radius;
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+
+  const mat = new THREE.PointsMaterial({
+    color: 0xD94F5C,
+    size: 0.025,
+    transparent: true,
+    opacity: 0.5,
+    sizeAttenuation: true,
+  });
+
+  return new THREE.Points(geo, mat);
+}
+
+const particles = createParticles();
+scene.add(particles);
+
+
+// ── Ground plane ─────────────────────────────────────────────
+
+const groundGeo = new THREE.PlaneGeometry(30, 30);
+const groundMat = new THREE.MeshStandardMaterial({
+  color: 0x0a0a0a,
+  roughness: 1.0,
+  metalness: 0.0,
+});
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -3;
+ground.receiveShadow = true;
+scene.add(ground);
+
+
+// ── Animation Loop ───────────────────────────────────────────
+
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  const t = clock.getElapsedTime();
+
+  // Crane floating bob
+  crane.position.y = 1.8 + Math.sin(t * 0.8) * 0.12;
+
+  // Gentle rotation
+  crane.rotation.y = t * 0.15;
+
+  // Subtle tilt with bob
+  crane.rotation.z = Math.sin(t * 0.6) * 0.03;
+  crane.rotation.x = Math.sin(t * 0.4) * 0.02;
+
+  // Animate particles: slow upward drift
+  const pp = particles.geometry.attributes.position.array;
+  for (let i = 0; i < pp.length; i += 3) {
+    pp[i + 1] += 0.0008;
+    // Reset if too high
+    if (pp[i + 1] > 5) pp[i + 1] = -1.0;
+    // Gentle lateral sway
+    pp[i]     += Math.sin(t * 0.3 + i) * 0.0003;
+    pp[i + 2] += Math.cos(t * 0.3 + i) * 0.0003;
+  }
+  particles.geometry.attributes.position.needsUpdate = true;
+
+  // Slowly rotate the particle field
+  particles.rotation.y = t * 0.02;
+
+  // Subtle point light breathing
+  pointLight.intensity = 0.5 + Math.sin(t * 1.2) * 0.15;
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+animate();
+
+
+// ── Resize Handling ──────────────────────────────────────────
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+</script>
+</body>
+</html>

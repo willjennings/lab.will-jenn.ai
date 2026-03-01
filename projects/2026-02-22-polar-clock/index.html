@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polar Bauhaus World Clock</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a1e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    overflow: hidden;
+  }
+  .back-link {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 9999;
+    font-size: .75rem;
+    color: #666;
+    text-decoration: none;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    background: rgba(255,255,255,.8);
+    padding: .4rem .7rem;
+    border-radius: 4px;
+    backdrop-filter: blur(8px);
+    font-family: monospace;
+  }
+  .back-link:hover { color: #333; }
+  h1 {
+    color: #aaa;
+    font-weight: 200;
+    font-size: 1.1rem;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    margin-bottom: .8rem;
+    text-align: center;
+  }
+  canvas {
+    display: block;
+  }
+  #container {
+    position: relative;
+  }
+  #clock-canvas, #ui-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  .info {
+    color: #555;
+    font-size: .65rem;
+    text-align: center;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<a class="back-link" href="../../">&larr; Back to Lab</a>
+<h1>Polar Bauhaus World Clock</h1>
+<div id="container">
+  <canvas id="clock-canvas"></canvas>
+  <canvas id="ui-canvas"></canvas>
+</div>
+<div class="info" id="info-line">Click a city on the map to change timezone</div>
+
+<script>
+(function() {
+  // --- Constants ---
+  const BASE_W = 500;
+  const BASE_H = 750;
+  const CLOCK_H = 510;  // height of clock area
+  const CX = 250, CY = 250;  // clock center
+
+  // Two-layer canvas: clock layer persists (trail effect), UI layer redraws each frame
+  const clockCanvas = document.getElementById('clock-canvas');
+  const uiCanvas = document.getElementById('ui-canvas');
+  const clockCtx = clockCanvas.getContext('2d');
+  const uiCtx = uiCanvas.getContext('2d');
+  const container = document.getElementById('container');
+  const infoLine = document.getElementById('info-line');
+
+  let scale = 1;
+  let mouseX = 0, mouseY = 0;
+
+  function resize() {
+    const maxW = window.innerWidth * 0.95;
+    const maxH = (window.innerHeight - 100) * 0.92;
+    scale = Math.min(maxW / BASE_W, maxH / BASE_H, 1.5);
+    const w = Math.round(BASE_W * scale);
+    const h = Math.round(BASE_H * scale);
+    clockCanvas.width = w;
+    clockCanvas.height = h;
+    uiCanvas.width = w;
+    uiCanvas.height = h;
+    container.style.width = w + 'px';
+    container.style.height = h + 'px';
+    infoLine.style.marginTop = '0.5rem';
+    // Re-fill clock canvas background on resize
+    clockCtx.save();
+    clockCtx.scale(scale, scale);
+    clockCtx.fillStyle = '#1a1a1e';
+    clockCtx.fillRect(0, 0, BASE_W, BASE_H);
+    clockCtx.restore();
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // --- Mouse tracking (in base coordinates) ---
+  function getBaseCoords(e) {
+    const rect = uiCanvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: (clientX - rect.left) / scale,
+      y: (clientY - rect.top) / scale
+    };
+  }
+  uiCanvas.addEventListener('mousemove', function(e) {
+    const c = getBaseCoords(e);
+    mouseX = c.x; mouseY = c.y;
+    uiCanvas.style.cursor = mouseY > 500 ? 'crosshair' : 'default';
+  });
+  uiCanvas.addEventListener('mousedown', function(e) {
+    const c = getBaseCoords(e);
+    mouseX = c.x; mouseY = c.y;
+    handleClick();
+  });
+  uiCanvas.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    const c = getBaseCoords(e);
+    mouseX = c.x; mouseY = c.y;
+    handleClick();
+  }, { passive: false });
+
+  // --- HSB to RGBA string ---
+  function hsbToRgba(h, s, b, a) {
+    h = ((h % 360) + 360) % 360;
+    s /= 100; b /= 100;
+    const c = b * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = b - c;
+    let r, g, bl;
+    if (h < 60)       { r = c; g = x; bl = 0; }
+    else if (h < 120) { r = x; g = c; bl = 0; }
+    else if (h < 180) { r = 0; g = c; bl = x; }
+    else if (h < 240) { r = 0; g = x; bl = c; }
+    else if (h < 300) { r = x; g = 0; bl = c; }
+    else              { r = c; g = 0; bl = x; }
+    return `rgba(${Math.round((r+m)*255)},${Math.round((g+m)*255)},${Math.round((bl+m)*255)},${a})`;
+  }
+
+  // --- State ---
+  let displayString = 'New York';
+  let clX = 132, clY = 567;
+  let circX = 132, circY = 567;
+  let bright = 70;
+  let selectedTz = 'America/New_York';
+  const startMillis = Date.now();
+
+  // --- Cities with IANA timezones ---
+  const cities = [
+    { name: 'Anchorage', x: 27, y: 533, tz: 'America/Anchorage' },
+    { name: 'Los Angeles', x: 68, y: 571, tz: 'America/Los_Angeles' },
+    { name: 'Salt Lake City', x: 75, y: 562, tz: 'America/Denver' },
+    { name: 'Mexico City', x: 97, y: 596, tz: 'America/Mexico_City' },
+    { name: 'Dallas', x: 99, y: 578, tz: 'America/Chicago' },
+    { name: 'Chicago', x: 115, y: 559, tz: 'America/Chicago' },
+    { name: 'Santiago', x: 136, y: 683, tz: 'America/Santiago' },
+    { name: 'Buenos Aires', x: 156, y: 682, tz: 'America/Argentina/Buenos_Aires' },
+    { name: 'Bogota', x: 134, y: 623, tz: 'America/Bogota' },
+    { name: 'Caracas', x: 139, y: 612, tz: 'America/Caracas' },
+    { name: 'Ottawa', x: 128, y: 556, tz: 'America/Toronto' },
+    { name: 'New York', x: 132, y: 567, tz: 'America/New_York' },
+    { name: 'Brasilia', x: 165, y: 653, tz: 'America/Sao_Paulo' },
+    { name: 'Halifax', x: 157, y: 552, tz: 'America/Halifax' },
+    { name: 'Nuuk', x: 165, y: 526, tz: 'America/Nuuk' },
+    { name: 'Reykjavik', x: 210, y: 528, tz: 'Atlantic/Reykjavik' },
+    { name: 'London', x: 232, y: 546, tz: 'Europe/London' },
+    { name: 'Barcelona', x: 231, y: 563, tz: 'Europe/Madrid' },
+    { name: 'Dakar', x: 210, y: 604, tz: 'Africa/Dakar' },
+    { name: 'Paris', x: 242, y: 553, tz: 'Europe/Paris' },
+    { name: 'Rome', x: 258, y: 564, tz: 'Europe/Rome' },
+    { name: 'Berlin', x: 253, y: 545, tz: 'Europe/Berlin' },
+    { name: 'Warsaw', x: 265, y: 546, tz: 'Europe/Warsaw' },
+    { name: 'Moscow', x: 284, y: 542, tz: 'Europe/Moscow' },
+    { name: 'Athens', x: 270, y: 566, tz: 'Europe/Athens' },
+    { name: 'Cairo', x: 280, y: 579, tz: 'Africa/Cairo' },
+    { name: 'Amman', x: 286, y: 575, tz: 'Asia/Amman' },
+    { name: 'Djibouti', x: 293, y: 614, tz: 'Africa/Djibouti' },
+    { name: 'Tehran', x: 309, y: 571, tz: 'Asia/Tehran' },
+    { name: 'Dubai', x: 307, y: 588, tz: 'Asia/Dubai' },
+    { name: 'Astana', x: 329, y: 548, tz: 'Asia/Almaty' },
+    { name: 'Mumbai', x: 336, y: 593, tz: 'Asia/Kolkata' },
+    { name: 'Dhaka', x: 359, y: 591, tz: 'Asia/Dhaka' },
+    { name: 'Bangkok', x: 376, y: 609, tz: 'Asia/Bangkok' },
+    { name: 'Jakarta', x: 383, y: 637, tz: 'Asia/Jakarta' },
+    { name: 'Beijing', x: 397, y: 568, tz: 'Asia/Shanghai' },
+    { name: 'Tokyo', x: 429, y: 571, tz: 'Asia/Tokyo' },
+    { name: 'Port Moresby', x: 435, y: 639, tz: 'Pacific/Port_Moresby' },
+    { name: 'Brisbane', x: 447, y: 673, tz: 'Australia/Brisbane' },
+    { name: 'Wellington', x: 475, y: 694, tz: 'Pacific/Auckland' },
+    { name: 'Sydney', x: 453, y: 680, tz: 'Australia/Sydney' },
+    { name: 'Luanda', x: 256, y: 641, tz: 'Africa/Luanda' },
+    { name: 'Abuja', x: 247, y: 615, tz: 'Africa/Lagos' },
+    { name: 'Nairobi', x: 288, y: 635, tz: 'Africa/Nairobi' },
+    { name: 'Cape Town', x: 265, y: 681, tz: 'Africa/Johannesburg' },
+  ];
+
+  // --- Get time in selected timezone ---
+  function getTimeInTz() {
+    const now = new Date();
+    // Use Intl to get the time parts in the target timezone
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: selectedTz,
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+    const parts = {};
+    for (const p of fmt.formatToParts(now)) {
+      parts[p.type] = parseInt(p.value) || 0;
+    }
+    // hour '24' from midnight edge case
+    const h = parts.hour === 24 ? 0 : parts.hour;
+    return { h, m: parts.minute, s: parts.second, ms: now.getMilliseconds() };
+  }
+
+  // --- Handle city click ---
+  function handleClick() {
+    if (mouseY < 500) return;
+    const hitR = 14;
+    for (const c of cities) {
+      const dx = mouseX - c.x;
+      const dy = mouseY - c.y;
+      if (dx * dx + dy * dy < hitR * hitR) {
+        displayString = c.name;
+        clX = c.x; clY = c.y;
+        circX = c.x; circY = c.y;
+        selectedTz = c.tz;
+        // Clear clock canvas trails when changing timezone
+        clockCtx.save();
+        clockCtx.scale(scale, scale);
+        clockCtx.fillStyle = '#1a1a1e';
+        clockCtx.fillRect(0, 0, BASE_W, CLOCK_H);
+        clockCtx.restore();
+        return;
+      }
+    }
+  }
+
+  // --- Draw arc (180-degree pie wedge) on clock canvas ---
+  function drawArc(diameter, startAngle, hsb_h, hsb_s, hsb_b, hsb_a) {
+    const radius = diameter / 2;
+    const color = hsbToRgba(hsb_h, hsb_s, Math.max(hsb_b, 8), hsb_a / 100);
+    clockCtx.fillStyle = color;
+    clockCtx.beginPath();
+    clockCtx.moveTo(CX, CY);
+    clockCtx.arc(CX, CY, radius, startAngle, startAngle + Math.PI);
+    clockCtx.closePath();
+    clockCtx.fill();
+  }
+
+  // --- Draw the stylized world map ---
+  function drawWorldMap(ctx) {
+    const mapY = CLOCK_H;
+    const mapH = BASE_H - mapY;
+
+    // Dark map background
+    ctx.fillStyle = '#1e1e22';
+    ctx.fillRect(0, mapY, BASE_W, mapH);
+
+    // Simplified continent shapes
+    ctx.save();
+    ctx.globalAlpha = 0.15;
+    ctx.fillStyle = '#556677';
+
+    // North America
+    ctx.beginPath();
+    ctx.moveTo(15, 522); ctx.lineTo(40, 518); ctx.lineTo(65, 515);
+    ctx.lineTo(85, 520); ctx.lineTo(100, 528); ctx.lineTo(115, 538);
+    ctx.lineTo(130, 548); ctx.lineTo(138, 558); ctx.lineTo(133, 572);
+    ctx.lineTo(125, 578); ctx.lineTo(112, 582); ctx.lineTo(105, 590);
+    ctx.lineTo(95, 600); ctx.lineTo(88, 607); ctx.lineTo(82, 600);
+    ctx.lineTo(72, 582); ctx.lineTo(62, 574); ctx.lineTo(50, 565);
+    ctx.lineTo(35, 555); ctx.lineTo(22, 542); ctx.lineTo(15, 530);
+    ctx.closePath();
+    ctx.fill();
+
+    // Central America
+    ctx.beginPath();
+    ctx.moveTo(88, 607); ctx.lineTo(95, 600); ctx.lineTo(105, 605);
+    ctx.lineTo(110, 615); ctx.lineTo(105, 620); ctx.lineTo(95, 618);
+    ctx.closePath();
+    ctx.fill();
+
+    // South America
+    ctx.beginPath();
+    ctx.moveTo(118, 615); ctx.lineTo(138, 610); ctx.lineTo(158, 615);
+    ctx.lineTo(172, 625); ctx.lineTo(178, 640); ctx.lineTo(175, 655);
+    ctx.lineTo(168, 668); ctx.lineTo(158, 680); ctx.lineTo(148, 690);
+    ctx.lineTo(140, 696); ctx.lineTo(132, 690); ctx.lineTo(128, 675);
+    ctx.lineTo(125, 658); ctx.lineTo(120, 640); ctx.lineTo(115, 628);
+    ctx.closePath();
+    ctx.fill();
+
+    // Europe
+    ctx.beginPath();
+    ctx.moveTo(208, 528); ctx.lineTo(220, 525); ctx.lineTo(238, 528);
+    ctx.lineTo(255, 530); ctx.lineTo(268, 532); ctx.lineTo(278, 538);
+    ctx.lineTo(282, 548); ctx.lineTo(275, 556); ctx.lineTo(265, 562);
+    ctx.lineTo(255, 568); ctx.lineTo(242, 570); ctx.lineTo(230, 568);
+    ctx.lineTo(222, 562); ctx.lineTo(215, 553); ctx.lineTo(210, 542);
+    ctx.closePath();
+    ctx.fill();
+
+    // Africa
+    ctx.beginPath();
+    ctx.moveTo(218, 582); ctx.lineTo(232, 578); ctx.lineTo(248, 576);
+    ctx.lineTo(262, 575); ctx.lineTo(278, 578); ctx.lineTo(292, 585);
+    ctx.lineTo(298, 598); ctx.lineTo(300, 615); ctx.lineTo(296, 632);
+    ctx.lineTo(290, 648); ctx.lineTo(282, 662); ctx.lineTo(275, 674);
+    ctx.lineTo(268, 682); ctx.lineTo(258, 685); ctx.lineTo(250, 678);
+    ctx.lineTo(244, 665); ctx.lineTo(240, 648); ctx.lineTo(235, 632);
+    ctx.lineTo(228, 615); ctx.lineTo(222, 600); ctx.lineTo(218, 590);
+    ctx.closePath();
+    ctx.fill();
+
+    // Asia (main mass)
+    ctx.beginPath();
+    ctx.moveTo(282, 528); ctx.lineTo(305, 522); ctx.lineTo(330, 518);
+    ctx.lineTo(360, 520); ctx.lineTo(390, 525); ctx.lineTo(415, 532);
+    ctx.lineTo(435, 540); ctx.lineTo(445, 548); ctx.lineTo(440, 558);
+    ctx.lineTo(432, 565); ctx.lineTo(418, 572); ctx.lineTo(402, 578);
+    ctx.lineTo(385, 582); ctx.lineTo(368, 588); ctx.lineTo(350, 592);
+    ctx.lineTo(335, 596); ctx.lineTo(318, 592); ctx.lineTo(305, 585);
+    ctx.lineTo(295, 575); ctx.lineTo(288, 562); ctx.lineTo(284, 548);
+    ctx.closePath();
+    ctx.fill();
+
+    // India
+    ctx.beginPath();
+    ctx.moveTo(318, 588); ctx.lineTo(335, 592); ctx.lineTo(345, 600);
+    ctx.lineTo(342, 615); ctx.lineTo(335, 625); ctx.lineTo(325, 618);
+    ctx.lineTo(318, 605);
+    ctx.closePath();
+    ctx.fill();
+
+    // Southeast Asia / Indonesia
+    ctx.beginPath();
+    ctx.moveTo(358, 598); ctx.lineTo(378, 602); ctx.lineTo(395, 610);
+    ctx.lineTo(410, 618); ctx.lineTo(418, 628); ctx.lineTo(412, 640);
+    ctx.lineTo(398, 645); ctx.lineTo(382, 642); ctx.lineTo(368, 635);
+    ctx.lineTo(358, 625); ctx.lineTo(355, 612);
+    ctx.closePath();
+    ctx.fill();
+
+    // Japan
+    ctx.beginPath();
+    ctx.moveTo(424, 552); ctx.lineTo(432, 548); ctx.lineTo(438, 555);
+    ctx.lineTo(436, 568); ctx.lineTo(432, 578); ctx.lineTo(426, 572);
+    ctx.lineTo(424, 562);
+    ctx.closePath();
+    ctx.fill();
+
+    // Australia
+    ctx.beginPath();
+    ctx.moveTo(418, 652); ctx.lineTo(438, 648); ctx.lineTo(458, 650);
+    ctx.lineTo(472, 658); ctx.lineTo(478, 670); ctx.lineTo(472, 682);
+    ctx.lineTo(462, 692); ctx.lineTo(448, 696); ctx.lineTo(435, 692);
+    ctx.lineTo(425, 682); ctx.lineTo(418, 670); ctx.lineTo(416, 660);
+    ctx.closePath();
+    ctx.fill();
+
+    // New Zealand
+    ctx.beginPath();
+    ctx.moveTo(472, 688); ctx.lineTo(478, 686); ctx.lineTo(480, 698);
+    ctx.lineTo(476, 704); ctx.lineTo(472, 698);
+    ctx.closePath();
+    ctx.fill();
+
+    // Greenland
+    ctx.beginPath();
+    ctx.moveTo(155, 515); ctx.lineTo(175, 512); ctx.lineTo(188, 516);
+    ctx.lineTo(185, 528); ctx.lineTo(175, 532); ctx.lineTo(162, 530);
+    ctx.lineTo(155, 524);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+
+    // Grid lines
+    ctx.save();
+    ctx.globalAlpha = 0.05;
+    ctx.strokeStyle = '#8899aa';
+    ctx.lineWidth = 0.5;
+    for (let x = 50; x < BASE_W; x += 50) {
+      ctx.beginPath(); ctx.moveTo(x, mapY); ctx.lineTo(x, BASE_H); ctx.stroke();
+    }
+    for (let y = mapY + 30; y < BASE_H; y += 30) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(BASE_W, y); ctx.stroke();
+    }
+    ctx.restore();
+
+    // Equator
+    ctx.save();
+    ctx.globalAlpha = 0.08;
+    ctx.strokeStyle = '#ff6644';
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([3, 3]);
+    const eqY = mapY + mapH * 0.42;
+    ctx.beginPath(); ctx.moveTo(0, eqY); ctx.lineTo(BASE_W, eqY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  // --- Draw city dots and labels ---
+  function drawCities(ctx) {
+    const hoverRadius = 14;
+    let hoveredCity = null;
+
+    for (const c of cities) {
+      const dx = mouseX - c.x;
+      const dy = mouseY - c.y;
+      const isHovered = mouseY > 500 && (dx * dx + dy * dy < hoverRadius * hoverRadius);
+      const isSelected = (c.name === displayString);
+      if (isHovered && !isSelected) hoveredCity = c;
+
+      // Selected glow
+      if (isSelected) {
+        ctx.fillStyle = 'rgba(255, 80, 50, 0.2)';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 9, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Dot
+      ctx.fillStyle = isSelected ? 'rgba(255, 80, 50, 0.9)' :
+                       isHovered ? 'rgba(255, 110, 80, 0.7)' :
+                                   'rgba(255, 80, 50, 0.3)';
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, isSelected ? 4.5 : isHovered ? 4 : 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Inner bright dot
+      if (isSelected || isHovered) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Hovered city tooltip
+    if (hoveredCity) {
+      ctx.font = '11px "Helvetica Neue", Helvetica, Arial, sans-serif';
+      ctx.fillStyle = 'rgba(200, 200, 200, 0.75)';
+      ctx.textBaseline = 'middle';
+      if (hoveredCity.x < BASE_W - 100) {
+        ctx.textAlign = 'left';
+        ctx.fillText(hoveredCity.name, hoveredCity.x + 9, hoveredCity.y + 1);
+      } else {
+        ctx.textAlign = 'right';
+        ctx.fillText(hoveredCity.name, hoveredCity.x - 9, hoveredCity.y + 1);
+      }
+    }
+
+    // Selected city label
+    ctx.font = '600 13px "Helvetica Neue", Helvetica, Arial, sans-serif';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.textBaseline = 'middle';
+    if (clX < BASE_W - 100) {
+      ctx.textAlign = 'left';
+      ctx.fillText(displayString, clX + 10, clY + 1);
+    } else {
+      ctx.textAlign = 'right';
+      ctx.fillText(displayString, clX - 10, clY + 1);
+    }
+  }
+
+  // --- Main animation loop ---
+  function draw() {
+    const millis = Date.now() - startMillis;
+    const tzTime = getTimeInTz();
+    const deg2rad = Math.PI / 180;
+
+    // --- Brightness based on selected timezone ---
+    const cTime = tzTime.h + tzTime.m / 60;
+    if (cTime >= 12) {
+      bright = ((24 - cTime) / 12) * 100;
+    } else {
+      bright = (cTime / 12) * 100;
+    }
+    bright = Math.max(bright, 12);
+
+    // === CLOCK CANVAS (persistent, creates trails) ===
+    clockCtx.save();
+    clockCtx.scale(scale, scale);
+
+    // Semi-transparent overlay for trail fade effect
+    // This is the key Bauhaus effect: arcs leave ghostly trails as they rotate
+    clockCtx.fillStyle = 'rgba(26, 26, 30, 0.08)';
+    clockCtx.fillRect(0, 0, BASE_W, CLOCK_H);
+
+    // Compute arc angles (matching original Processing logic)
+    // t = hours angle: (s/3600 + m/60 + h) * 30 degrees
+    const t = (tzTime.s / 3600.0 + tzTime.m / 60.0 + tzTime.h) * 30.0;
+    // mc = minutes base angle: s * 6 degrees
+    const mc = tzTime.s * 6;
+    // D = day angle: (s/3600 + m/60 + h) * 15 degrees
+    const D = (tzTime.s / 3600.0 + tzTime.m / 60.0 + tzTime.h) * 15.0;
+
+    // Continuous sub-second rotation from millis
+    const dRot = ((millis % 86400000) / 86400000) * 360;
+    const hRot = ((millis % 3600000) / 3600000) * 360;
+    const mRot = ((millis % 60000) / 60000) * 360;
+    const sRot = ((millis % 1000) / 1000) * 360;
+
+    // Day hemisphere (outermost, green HSB 120, half brightness)
+    const dayAngle = (-90 + dRot + D) * deg2rad;
+    drawArc(400, dayAngle, 120, 100, bright / 2, 19.6);
+
+    // Hours hemisphere (yellow HSB 60)
+    const hourAngle = (-90 + hRot + t) * deg2rad;
+    drawArc(300, hourAngle, 60, 100, bright, 19.6);
+
+    // Minutes hemisphere (blue HSB 240)
+    const minAngle = (-90 + mRot + mc) * deg2rad;
+    drawArc(200, minAngle, 240, 100, bright, 19.6);
+
+    // Seconds hemisphere (innermost, red HSB 0)
+    const secAngle = (-90 + sRot) * deg2rad;
+    drawArc(100, secAngle, 0, 100, bright, 19.6);
+
+    clockCtx.restore();
+
+    // === UI CANVAS (redrawn each frame) ===
+    uiCtx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
+    uiCtx.save();
+    uiCtx.scale(scale, scale);
+
+    // Time display in center of clock
+    const timeStr = tzTime.h.toString().padStart(2, '0') + ':' +
+                    tzTime.m.toString().padStart(2, '0') + ':' +
+                    tzTime.s.toString().padStart(2, '0');
+    uiCtx.font = '200 26px "Helvetica Neue", Helvetica, Arial, sans-serif';
+    uiCtx.fillStyle = `rgba(255,255,255,${(0.12 + bright / 350).toFixed(3)})`;
+    uiCtx.textAlign = 'center';
+    uiCtx.textBaseline = 'middle';
+    uiCtx.fillText(timeStr, CX, CY);
+
+    // City name below time
+    uiCtx.font = '200 10px "Helvetica Neue", Helvetica, Arial, sans-serif';
+    uiCtx.fillStyle = 'rgba(255,255,255,0.25)';
+    uiCtx.fillText(displayString.toUpperCase(), CX, CY + 20);
+
+    // Arc ring labels (very subtle)
+    uiCtx.font = '200 7px "Helvetica Neue", Helvetica, Arial, sans-serif';
+    uiCtx.fillStyle = 'rgba(255,255,255,0.1)';
+    uiCtx.fillText('SEC', CX, CY - 55);
+    uiCtx.fillText('MIN', CX, CY - 108);
+    uiCtx.fillText('HR', CX, CY - 158);
+    uiCtx.fillText('DAY', CX, CY - 208);
+
+    // Brightness indicator
+    uiCtx.font = '200 8px "Helvetica Neue", Helvetica, Arial, sans-serif';
+    uiCtx.fillStyle = 'rgba(255,255,255,0.12)';
+    uiCtx.fillText(Math.round(bright) + '% LIGHT', CX, 478);
+
+    // Divider
+    uiCtx.strokeStyle = 'rgba(255,255,255,0.05)';
+    uiCtx.lineWidth = 1;
+    uiCtx.beginPath();
+    uiCtx.moveTo(0, CLOCK_H - 2);
+    uiCtx.lineTo(BASE_W, CLOCK_H - 2);
+    uiCtx.stroke();
+
+    // World map and cities
+    drawWorldMap(uiCtx);
+    drawCities(uiCtx);
+
+    uiCtx.restore();
+
+    requestAnimationFrame(draw);
+  }
+
+  requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>

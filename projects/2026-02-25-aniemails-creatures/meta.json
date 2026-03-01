@@ -1,0 +1,11 @@
+{
+  "title": "Aniemails: Communication Creatures",
+  "date": "2026-02-25",
+  "dayNumber": 8,
+  "description": "Your writing style becomes a creature. Five renderers — Tangram, Glyph, Origami, Tamagotchi, Chernoff — transform communication patterns into unique procedural SVG animals. Explore 6 contacts across 2 pipelines.",
+  "tags": ["generative", "data-viz", "svg", "interactive"],
+  "tools": ["claude-code", "html", "css", "javascript", "svg", "python"],
+  "accentColor": "#52B788",
+  "liveUrl": null,
+  "sourceUrl": null
+}

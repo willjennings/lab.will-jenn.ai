@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Speech Visualizer Prototype</title>
+<meta name="description" content="A voice-controlled conversational interface using the Web Speech API. Speak into your mic, see your words transcribed, and hear a simulated response with synthesized speech.">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0e0e12;
+    --surface: #18181f;
+    --surface-alt: #1e1e28;
+    --border: #2a2a35;
+    --text: #e0ddd6;
+    --text-muted: rgba(255,255,255,.45);
+    --accent: #2D7DD2;
+    --accent-glow: rgba(45,125,210,.35);
+    --accent-bright: #5ba3e6;
+    --user-bg: rgba(45,125,210,.15);
+    --user-border: rgba(45,125,210,.3);
+    --assistant-bg: rgba(255,255,255,.05);
+    --assistant-border: rgba(255,255,255,.08);
+    --radius: 12px;
+  }
+
+  html { font-size: 16px; }
+
+  body {
+    font-family: 'DM Mono', 'IBM Plex Mono', 'SF Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+  }
+
+  /* Back to Lab link */
+  .back-link {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 9999;
+    font-size: .75rem;
+    color: rgba(255,255,255,.6);
+    text-decoration: none;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    background: rgba(0,0,0,.5);
+    padding: .4rem .7rem;
+    border-radius: 4px;
+    backdrop-filter: blur(8px);
+    font-family: monospace;
+    transition: color .2s;
+  }
+  .back-link:hover { color: #fff; }
+
+  #container {
+    width: 100%;
+    max-width: 540px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 400;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: .5rem;
+  }
+
+  .subtitle {
+    text-align: center;
+    font-size: .7rem;
+    color: var(--text-muted);
+    letter-spacing: .04em;
+    margin-top: -.75rem;
+    line-height: 1.5;
+  }
+
+  /* Conversation area */
+  .conversation {
+    width: 100%;
+    height: 320px;
+    overflow-y: auto;
+    padding: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .conversation::-webkit-scrollbar { width: 4px; }
+  .conversation::-webkit-scrollbar-track { background: transparent; }
+  .conversation::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .conversation-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted);
+    font-size: .75rem;
+    letter-spacing: .04em;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  .message {
+    padding: .6rem .9rem;
+    border-radius: 8px;
+    max-width: 85%;
+    font-size: .8rem;
+    line-height: 1.5;
+    animation: msgIn .3s ease;
+  }
+
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .message.user {
+    background: var(--user-bg);
+    border: 1px solid var(--user-border);
+    color: var(--accent-bright);
+    align-self: flex-end;
+  }
+
+  .message.assistant {
+    background: var(--assistant-bg);
+    border: 1px solid var(--assistant-border);
+    color: var(--text);
+    align-self: flex-start;
+  }
+
+  /* Mic button */
+  .mic-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mic-ring {
+    position: absolute;
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    opacity: 0;
+    transition: opacity .3s;
+  }
+
+  .mic {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 32px;
+    transition: transform .15s ease, box-shadow .3s ease, background-color .3s ease;
+    box-shadow: 0 0 24px var(--accent-glow), 0 4px 20px rgba(0,0,0,.4);
+    z-index: 1;
+    outline: none;
+  }
+
+  .mic:hover {
+    transform: scale(1.06);
+    box-shadow: 0 0 36px var(--accent-glow), 0 6px 24px rgba(0,0,0,.5);
+  }
+
+  .mic:active {
+    transform: scale(.96);
+  }
+
+  .mic-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+
+  /* Listening state */
+  .mic.listening {
+    background: #1a5a9e;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  .mic.listening ~ .mic-ring {
+    opacity: 1;
+    animation: ringPulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 20px var(--accent-glow), 0 4px 20px rgba(0,0,0,.4); }
+    50%  { box-shadow: 0 0 40px rgba(45,125,210,.6), 0 4px 30px rgba(0,0,0,.5); }
+    100% { box-shadow: 0 0 20px var(--accent-glow), 0 4px 20px rgba(0,0,0,.4); }
+  }
+
+  @keyframes ringPulse {
+    0%   { transform: scale(1); opacity: .5; }
+    50%  { transform: scale(1.15); opacity: .15; }
+    100% { transform: scale(1); opacity: .5; }
+  }
+
+  /* Thinking state */
+  .mic.thinking {
+    background: #1a5a9e;
+    pointer-events: none;
+  }
+
+  .mic.thinking .mic-icon {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .mic-label {
+    font-size: .65rem;
+    color: var(--text-muted);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    text-align: center;
+    margin-top: .15rem;
+    transition: color .2s;
+    min-height: 1.2em;
+  }
+
+  .mic-label.active {
+    color: var(--accent-bright);
+  }
+
+  /* Status bar */
+  .status-bar {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    font-size: .6rem;
+    color: var(--text-muted);
+    letter-spacing: .04em;
+    padding: 0 .25rem;
+  }
+
+  .status-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #444;
+    margin-right: 4px;
+    vertical-align: middle;
+    transition: background .3s;
+  }
+
+  .status-dot.ready { background: #52B788; }
+  .status-dot.error { background: #e45757; }
+
+  /* Unsupported warning */
+  .unsupported-warning {
+    width: 100%;
+    background: rgba(228,87,46,.1);
+    border: 1px solid rgba(228,87,46,.25);
+    color: #e4a07a;
+    padding: .7rem 1rem;
+    border-radius: 8px;
+    font-size: .75rem;
+    line-height: 1.5;
+    text-align: center;
+    display: none;
+  }
+
+  .unsupported-warning.visible {
+    display: block;
+  }
+</style>
+</head>
+<body>
+  <a class="back-link" href="../../">&#8592; Back to Lab</a>
+
+  <div id="container">
+    <h1>Speech Visualizer Prototype</h1>
+    <p class="subtitle">Click the mic, speak, and hear a response</p>
+
+    <div class="unsupported-warning" id="unsupportedWarning">
+      Your browser does not support the Web Speech API.<br>
+      Try Chrome or Edge for full functionality.
+    </div>
+
+    <div id="conversation" class="conversation">
+      <div class="conversation-empty" id="emptyState">
+        Tap the microphone to begin a conversation
+      </div>
+    </div>
+
+    <div class="mic-wrapper">
+      <button id="micBtn" class="mic" title="Click to start speaking">
+        <span class="mic-icon" id="micIcon">&#127908;</span>
+      </button>
+      <div class="mic-ring"></div>
+    </div>
+    <div class="mic-label" id="micLabel"></div>
+
+    <div class="status-bar">
+      <span><span class="status-dot" id="statusDot"></span> <span id="statusText">Initializing...</span></span>
+      <span>Web Speech API</span>
+    </div>
+  </div>
+
+<script>
+(function() {
+  // Elements
+  const micBtn = document.getElementById('micBtn');
+  const micIcon = document.getElementById('micIcon');
+  const micLabel = document.getElementById('micLabel');
+  const conversation = document.getElementById('conversation');
+  const emptyState = document.getElementById('emptyState');
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const unsupportedWarning = document.getElementById('unsupportedWarning');
+
+  // State
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition;
+  let isListening = false;
+  let hasMessages = false;
+
+  // Remove empty state once we have messages
+  function hideEmptyState() {
+    if (!hasMessages && emptyState) {
+      emptyState.remove();
+      hasMessages = true;
+    }
+  }
+
+  // Append a message to the conversation
+  function appendMessage(text, sender) {
+    hideEmptyState();
+    const msg = document.createElement('div');
+    msg.classList.add('message', sender);
+    msg.textContent = text;
+    conversation.appendChild(msg);
+    conversation.scrollTop = conversation.scrollHeight;
+  }
+
+  // Choose a response based on keyword matching
+  function chooseResponse(text) {
+    const lower = text.toLowerCase();
+    if (lower.includes('weather')) {
+      return 'Redmond, WA: Mostly cloudy, 49\u00B0F. Tomorrow: Rain showers, high 55\u00B0F, low 43\u00B0F.';
+    }
+    if (lower.includes('hello') || lower.includes('hi')) {
+      return 'Hello! How can I help you today?';
+    }
+    if (lower.includes('thank')) {
+      return "You're welcome! Is there anything else I can assist you with?";
+    }
+    if (lower.includes('time')) {
+      var now = new Date();
+      return 'The current time is ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) + '.';
+    }
+    if (lower.includes('name')) {
+      return 'I\'m a speech visualizer prototype. Nice to meet you!';
+    }
+    return 'You said: "' + text + '". Try asking about the weather, time, or just say hello.';
+  }
+
+  // Speak the response using SpeechSynthesis
+  function speakText(text) {
+    if ('speechSynthesis' in window) {
+      // Cancel any in-progress speech first
+      window.speechSynthesis.cancel();
+      var utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'en-US';
+      utter.rate = 1.0;
+      utter.pitch = 1.0;
+      window.speechSynthesis.speak(utter);
+    }
+  }
+
+  // Update mic label
+  function setMicLabel(text, active) {
+    micLabel.textContent = text;
+    if (active) {
+      micLabel.classList.add('active');
+    } else {
+      micLabel.classList.remove('active');
+    }
+  }
+
+  // Handle the user's query
+  function handleQuery(query) {
+    if (!query) return;
+    micBtn.classList.add('thinking');
+    setMicLabel('Processing...', true);
+
+    var response = chooseResponse(query);
+    setTimeout(function() {
+      micBtn.classList.remove('thinking');
+      setMicLabel('', false);
+      appendMessage(response, 'assistant');
+      speakText(response);
+    }, 1200);
+  }
+
+  // Initialize speech recognition
+  function initRecognition() {
+    if (!SpeechRecognition) {
+      return null;
+    }
+    var rec = new SpeechRecognition();
+    rec.lang = 'en-US';
+    rec.interimResults = false;
+    rec.continuous = false;
+
+    rec.onresult = function(event) {
+      var result = event.results[event.results.length - 1];
+      var transcript = result[0].transcript.trim();
+      if (transcript) {
+        appendMessage('You: ' + transcript, 'user');
+        handleQuery(transcript);
+      }
+    };
+
+    rec.onstart = function() {
+      micBtn.classList.add('listening');
+      setMicLabel('Listening...', true);
+    };
+
+    rec.onend = function() {
+      micBtn.classList.remove('listening');
+      isListening = false;
+      if (!micBtn.classList.contains('thinking')) {
+        setMicLabel('', false);
+      }
+    };
+
+    rec.onerror = function(event) {
+      console.error('Speech recognition error:', event.error);
+      micBtn.classList.remove('listening');
+      isListening = false;
+      if (event.error === 'no-speech') {
+        setMicLabel('No speech detected', false);
+      } else if (event.error === 'not-allowed') {
+        setMicLabel('Mic access denied', false);
+        statusDot.classList.remove('ready');
+        statusDot.classList.add('error');
+        statusText.textContent = 'Microphone blocked';
+      } else {
+        setMicLabel('Error: ' + event.error, false);
+      }
+      setTimeout(function() {
+        if (micLabel.textContent && !micBtn.classList.contains('listening') && !micBtn.classList.contains('thinking')) {
+          setMicLabel('', false);
+        }
+      }, 3000);
+    };
+
+    return rec;
+  }
+
+  // Setup
+  if (!SpeechRecognition) {
+    unsupportedWarning.classList.add('visible');
+    statusDot.classList.add('error');
+    statusText.textContent = 'Not supported';
+    micBtn.style.opacity = '0.4';
+    micBtn.style.cursor = 'not-allowed';
+  } else {
+    recognition = initRecognition();
+    statusDot.classList.add('ready');
+    statusText.textContent = 'Ready';
+  }
+
+  // Mic button click handler
+  micBtn.addEventListener('click', function() {
+    if (!SpeechRecognition) {
+      appendMessage('Your browser does not support speech recognition. Try Chrome or Edge.', 'assistant');
+      return;
+    }
+    if (micBtn.classList.contains('thinking')) {
+      return; // Don't interrupt processing
+    }
+    if (isListening) {
+      recognition.stop();
+    } else {
+      try {
+        recognition.start();
+        isListening = true;
+      } catch (e) {
+        console.error('Error starting recognition:', e);
+        // Re-initialize if in a bad state
+        recognition = initRecognition();
+        try {
+          recognition.start();
+          isListening = true;
+        } catch (e2) {
+          console.error('Failed to restart recognition:', e2);
+          setMicLabel('Error starting mic', false);
+        }
+      }
+    }
+  });
+})();
+</script>
+</body>
+</html>

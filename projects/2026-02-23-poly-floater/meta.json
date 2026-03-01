@@ -1,0 +1,11 @@
+{
+  "title": "Poly Floater",
+  "date": "2026-02-23",
+  "dayNumber": 6,
+  "description": "A low-poly 3D floating island scene with canyon columns, clouds, and tumbleweeds. Built with Three.js — orbit to explore, click to rotate the island. Anti-gravity desert aesthetic.",
+  "tags": ["3d", "interactive", "generative", "threejs"],
+  "tools": ["claude-code", "html", "css", "javascript", "threejs"],
+  "accentColor": "#E05437",
+  "liveUrl": null,
+  "sourceUrl": null
+}

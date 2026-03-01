@@ -22,5 +22,171 @@
     "thumb": null,
     "liveUrl": null,
     "sourceUrl": null
+  },
+  {
+    "folder": "2026-02-25-aniemails-creatures",
+    "title": "Aniemails: Communication Creatures",
+    "date": "2026-02-25",
+    "dayNumber": 8,
+    "description": "Your writing style becomes a creature. Five renderers — Tangram, Glyph, Origami, Tamagotchi, Chernoff — transform communication patterns into unique procedural SVG animals. Explore 6 contacts across 2 pipelines.",
+    "tags": [
+      "generative",
+      "data-viz",
+      "svg",
+      "interactive"
+    ],
+    "tools": [
+      "claude-code",
+      "html",
+      "css",
+      "javascript",
+      "svg",
+      "python"
+    ],
+    "accentColor": "#52B788",
+    "thumb": null,
+    "liveUrl": null,
+    "sourceUrl": null
+  },
+  {
+    "folder": "2026-02-24-origami-express",
+    "title": "Origami Express",
+    "date": "2026-02-24",
+    "dayNumber": 7,
+    "description": "A 3D origami crane from the HoloLens Holographic Academy, brought to the web with Three.js. The crane unfolds and animates in a multi-layered stage environment with orbit controls.",
+    "tags": [
+      "3d",
+      "interactive",
+      "threejs",
+      "ar-heritage"
+    ],
+    "tools": [
+      "claude-code",
+      "html",
+      "css",
+      "javascript",
+      "threejs"
+    ],
+    "accentColor": "#C85A2C",
+    "thumb": null,
+    "liveUrl": null,
+    "sourceUrl": null
+  },
+  {
+    "folder": "2026-02-23-poly-floater",
+    "title": "Poly Floater",
+    "date": "2026-02-23",
+    "dayNumber": 6,
+    "description": "A low-poly 3D floating island scene with canyon columns, clouds, and tumbleweeds. Built with Three.js — orbit to explore, click to rotate the island. Anti-gravity desert aesthetic.",
+    "tags": [
+      "3d",
+      "interactive",
+      "generative",
+      "threejs"
+    ],
+    "tools": [
+      "claude-code",
+      "html",
+      "css",
+      "javascript",
+      "threejs"
+    ],
+    "accentColor": "#E05437",
+    "thumb": null,
+    "liveUrl": null,
+    "sourceUrl": null
+  },
+  {
+    "folder": "2026-02-22-polar-clock",
+    "title": "Polar Bauhaus World Clock",
+    "date": "2026-02-22",
+    "dayNumber": 5,
+    "description": "Concentric rotating arcs visualize time across world cities. Click the map to select a timezone — brightness shifts with day/night cycles. Originally built in Processing (2014), ported to Canvas.",
+    "tags": [
+      "generative",
+      "interactive",
+      "data-viz",
+      "canvas"
+    ],
+    "tools": [
+      "claude-code",
+      "html",
+      "css",
+      "javascript",
+      "canvas"
+    ],
+    "accentColor": "#E8A838",
+    "thumb": null,
+    "liveUrl": null,
+    "sourceUrl": null
+  },
+  {
+    "folder": "2026-02-21-voice-enroll",
+    "title": "Voice Enrollment Flow",
+    "date": "2026-02-21",
+    "dayNumber": 4,
+    "description": "A voice enrollment prototype with Microsoft Fluent Design. Preview different voice options with audio playback, select your preferred voice, and confirm — a UX pattern for AI voice selection.",
+    "tags": [
+      "voice",
+      "prototype",
+      "ai-ux",
+      "design-systems"
+    ],
+    "tools": [
+      "claude-code",
+      "html",
+      "css",
+      "javascript"
+    ],
+    "accentColor": "#0078D4",
+    "thumb": null,
+    "liveUrl": null,
+    "sourceUrl": null
+  },
+  {
+    "folder": "2026-02-20-voice-prototype",
+    "title": "Speech Visualizer Prototype",
+    "date": "2026-02-20",
+    "dayNumber": 3,
+    "description": "A voice-controlled conversational interface using the Web Speech API. Speak into your mic, see your words transcribed, and hear a simulated Copilot respond with synthesized speech.",
+    "tags": [
+      "voice",
+      "interactive",
+      "prototype",
+      "ai-ux"
+    ],
+    "tools": [
+      "claude-code",
+      "html",
+      "css",
+      "javascript"
+    ],
+    "accentColor": "#2D7DD2",
+    "thumb": null,
+    "liveUrl": null,
+    "sourceUrl": null
+  },
+  {
+    "folder": "2026-02-08-weather-portfolio",
+    "title": "Weather-Responsive Portfolio",
+    "date": "2026-02-08",
+    "dayNumber": 2,
+    "description": "A portfolio site that dynamically adapts its visuals to real-time weather — rain particles, lightning flashes, floating clouds, falling snow — all driven by the OpenWeather API and geolocation.",
+    "tags": [
+      "interactive",
+      "generative",
+      "api",
+      "animation"
+    ],
+    "tools": [
+      "claude-code",
+      "html",
+      "css",
+      "javascript"
+    ],
+    "accentColor": "#4A90D9",
+    "thumb": null,
+    "liveUrl": null,
+    "sourceUrl": null
   }
 ]

@@ -1,0 +1,11 @@
+{
+  "title": "Polar Bauhaus World Clock",
+  "date": "2026-02-22",
+  "dayNumber": 5,
+  "description": "Concentric rotating arcs visualize time across world cities. Click the map to select a timezone — brightness shifts with day/night cycles. Originally built in Processing (2014), ported to Canvas.",
+  "tags": ["generative", "interactive", "data-viz", "canvas"],
+  "tools": ["claude-code", "html", "css", "javascript", "canvas"],
+  "accentColor": "#E8A838",
+  "liveUrl": null,
+  "sourceUrl": null
+}

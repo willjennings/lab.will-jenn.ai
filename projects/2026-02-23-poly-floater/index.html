@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Poly Floater</title>
+<meta name="description" content="A low-poly floating desert island drifting in the void. Anti-gravity prototype built with vanilla Three.js.">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    overflow: hidden;
+    background: #202025;
+    font-family: 'DM Mono', 'SF Mono', monospace;
+  }
+
+  canvas { display: block; }
+
+  /* Back to Lab link */
+  .back-link {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 100;
+    font-size: 0.75rem;
+    color: #888;
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: color 0.2s;
+    background: rgba(32,32,37,0.85);
+    padding: 0.4rem 0.7rem;
+    border-radius: 4px;
+    backdrop-filter: blur(8px);
+    font-family: 'DM Mono', 'SF Mono', monospace;
+  }
+  .back-link:hover { color: #e8e4dc; }
+
+  /* UI Overlay */
+  .ui-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 2rem;
+  }
+
+  .title-block {
+    color: white;
+    font-family: 'DM Mono', 'SF Mono', monospace;
+    padding-top: 2rem;
+  }
+
+  .title-block h1 {
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  .title-block p {
+    font-size: 0.8rem;
+    opacity: 0.5;
+    margin-top: 0.3rem;
+    letter-spacing: 0.03em;
+  }
+
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    pointer-events: auto;
+  }
+
+  .rotate-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.15);
+    background: rgba(40,40,45,0.7);
+    color: white;
+    font-size: 1.4rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(12px);
+    transition: border-color 0.25s, background 0.25s, transform 0.15s;
+    user-select: none;
+    font-family: 'DM Mono', 'SF Mono', monospace;
+  }
+
+  .rotate-btn:hover {
+    border-color: rgba(255,255,255,0.6);
+    background: rgba(60,60,65,0.8);
+  }
+
+  .rotate-btn:active {
+    transform: scale(0.92);
+  }
+
+  @media (max-width: 600px) {
+    .ui-overlay { padding: 1rem; }
+    .title-block { padding-top: 2.5rem; }
+    .rotate-btn { width: 48px; height: 48px; font-size: 1.2rem; }
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<a class="back-link" href="../../">&larr; Back to Lab</a>
+
+<div class="ui-overlay">
+  <div class="title-block">
+    <h1>Poly Floater</h1>
+    <p>Anti-Gravity Prototype</p>
+  </div>
+  <div class="controls">
+    <button class="rotate-btn" id="rotateLeft" aria-label="Rotate left">&#8634;</button>
+    <button class="rotate-btn" id="rotateRight" aria-label="Rotate right">&#8635;</button>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ─── Renderer ───
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setClearColor(0x202025);
+document.body.appendChild(renderer.domElement);
+
+// ─── Scene ───
+const scene = new THREE.Scene();
+
+// ─── Camera ───
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(0, 10, 20);
+
+// ─── Controls ───
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.target.set(0, 3, 0);
+
+// ─── Lighting ───
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+dirLight.position.set(10, 10, 5);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(2048, 2048);
+dirLight.shadow.camera.left = -20;
+dirLight.shadow.camera.right = 20;
+dirLight.shadow.camera.top = 20;
+dirLight.shadow.camera.bottom = -20;
+dirLight.shadow.camera.near = 0.5;
+dirLight.shadow.camera.far = 50;
+scene.add(dirLight);
+
+// ─── Island Group (for rotation) ───
+const islandGroup = new THREE.Group();
+scene.add(islandGroup);
+
+// ─── Materials ───
+const matDesertTop   = new THREE.MeshStandardMaterial({ color: 0xe05437, flatShading: true, roughness: 1 });
+const matBaseRock    = new THREE.MeshStandardMaterial({ color: 0x2d2424, flatShading: true, roughness: 0.8 });
+const matCanyon      = new THREE.MeshStandardMaterial({ color: 0xc23a2b, flatShading: true, roughness: 0.8 });
+const matCloud       = new THREE.MeshStandardMaterial({ color: 0xffffff, flatShading: true });
+const matTumbleweed  = new THREE.MeshStandardMaterial({ color: 0x8B4513, wireframe: true });
+
+// ─── Floating Island ───
+function createFloatingIsland() {
+  const group = new THREE.Group();
+  group.position.set(0, -2, 0);
+
+  // Dark base rock (tapered: top radius 14, bottom radius 2)
+  const baseGeo = new THREE.CylinderGeometry(14, 2, 7, 7);
+  const baseMesh = new THREE.Mesh(baseGeo, matBaseRock);
+  baseMesh.position.set(0, -1, 0);
+  baseMesh.castShadow = true;
+  baseMesh.receiveShadow = true;
+  group.add(baseMesh);
+
+  // Red desert top surface (flat disc)
+  const topGeo = new THREE.CylinderGeometry(14, 14, 1, 7);
+  const topMesh = new THREE.Mesh(topGeo, matDesertTop);
+  topMesh.position.set(0, 2.5, 0);
+  topMesh.castShadow = true;
+  topMesh.receiveShadow = true;
+  group.add(topMesh);
+
+  // Uneven ground detail (tilted cylinder at offset)
+  const detailGeo = new THREE.CylinderGeometry(4, 5, 0.5, 5);
+  const detailMesh = new THREE.Mesh(detailGeo, matDesertTop);
+  detailMesh.position.set(4, 2.8, 3);
+  detailMesh.rotation.set(-0.2, 0, 0.2);
+  detailMesh.receiveShadow = true;
+  group.add(detailMesh);
+
+  return group;
+}
+
+islandGroup.add(createFloatingIsland());
+
+// ─── Canyon Columns ───
+function createCanyonColumn(position, scale) {
+  // Tapered: bottom radius 1 -> top radius 2.5
+  const geo = new THREE.CylinderGeometry(1, 2.5, 8, 5);
+  const mesh = new THREE.Mesh(geo, matCanyon);
+  mesh.position.set(position[0], position[1], position[2]);
+  if (scale) mesh.scale.set(scale[0], scale[1], scale[2]);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+islandGroup.add(createCanyonColumn([-3, 4, -3]));
+islandGroup.add(createCanyonColumn([4, 3, -1], [1.2, 1.2, 1.2]));
+islandGroup.add(createCanyonColumn([0, 5, -6], [0.8, 1.5, 0.8]));
+
+// ─── Clouds ───
+function createCloud(position, scale) {
+  const group = new THREE.Group();
+  group.position.set(position[0], position[1], position[2]);
+  group.scale.setScalar(scale);
+
+  // Three overlapping dodecahedrons per cloud
+  const g1 = new THREE.DodecahedronGeometry(1, 0);
+  const m1 = new THREE.Mesh(g1, matCloud);
+  m1.castShadow = true;
+  group.add(m1);
+
+  const g2 = new THREE.DodecahedronGeometry(0.8, 0);
+  const m2 = new THREE.Mesh(g2, matCloud);
+  m2.position.set(1, 0.2, 0);
+  m2.castShadow = true;
+  group.add(m2);
+
+  const g3 = new THREE.DodecahedronGeometry(0.7, 0);
+  const m3 = new THREE.Mesh(g3, matCloud);
+  m3.position.set(-0.9, 0.1, 0.2);
+  m3.castShadow = true;
+  group.add(m3);
+
+  return group;
+}
+
+islandGroup.add(createCloud([-5, 8, -5], 1.5));
+islandGroup.add(createCloud([5, 9, 2], 1));
+islandGroup.add(createCloud([0, 10, -5], 0.8));
+
+// ─── Tumbleweeds ───
+const tumbleweeds = [];
+
+function createTumbleweed(position) {
+  const geo = new THREE.IcosahedronGeometry(0.4, 0);
+  const mesh = new THREE.Mesh(geo, matTumbleweed);
+  mesh.position.set(position[0], position[1], position[2]);
+  mesh.castShadow = true;
+  tumbleweeds.push(mesh);
+  return mesh;
+}
+
+islandGroup.add(createTumbleweed([-2, 4, 2]));
+islandGroup.add(createTumbleweed([2, 4, 0]));
+
+// ─── Rotation Animation (spring physics) ───
+let targetRotation = 0;
+let currentRotation = 0;
+let rotationVelocity = 0;
+
+// Spring constants matching react-spring defaults: mass 1, tension 170, friction 26
+const SPRING_TENSION = 170;
+const SPRING_FRICTION = 26;
+const SPRING_MASS = 1;
+
+document.getElementById('rotateLeft').addEventListener('click', () => {
+  targetRotation -= Math.PI / 4; // -45 degrees
+});
+document.getElementById('rotateRight').addEventListener('click', () => {
+  targetRotation += Math.PI / 4; // +45 degrees
+});
+
+// ─── Animation Loop ───
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  // Spring physics for smooth rotation
+  const displacement = currentRotation - targetRotation;
+  const springForce = -SPRING_TENSION * displacement;
+  const dampingForce = -SPRING_FRICTION * rotationVelocity;
+  const acceleration = (springForce + dampingForce) / SPRING_MASS;
+  rotationVelocity += acceleration * dt;
+  currentRotation += rotationVelocity * dt;
+
+  // Apply rotation on Z-axis with subtle X tilt (matching original Rotator)
+  islandGroup.rotation.z = currentRotation;
+  islandGroup.rotation.x = currentRotation * 0.1;
+
+  // Tumbleweed slow spin
+  tumbleweeds.forEach((tw) => {
+    tw.rotation.x += 0.4 * dt;
+    tw.rotation.z += 0.3 * dt;
+  });
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+animate();
+
+// ─── Resize Handler ───
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>

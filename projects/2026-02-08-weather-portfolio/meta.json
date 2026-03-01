@@ -1,0 +1,11 @@
+{
+  "title": "Weather-Responsive Portfolio",
+  "date": "2026-02-08",
+  "dayNumber": 2,
+  "description": "A portfolio site that dynamically adapts its visuals to real-time weather — rain particles, lightning flashes, floating clouds, falling snow — all driven by the OpenWeather API and geolocation.",
+  "tags": ["interactive", "generative", "api", "animation"],
+  "tools": ["claude-code", "html", "css", "javascript"],
+  "accentColor": "#4A90D9",
+  "liveUrl": null,
+  "sourceUrl": null
+}

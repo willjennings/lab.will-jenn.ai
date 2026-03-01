@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice Enrollment Flow</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #0078d4;
+      --primary-hover: #106ebe;
+      --success: #107c10;
+      --bg: #ffffff;
+      --bg-card: #ffffff;
+      --bg-card-selected: #f0f8ff;
+      --bg-card-playing: #f0fff0;
+      --text: #213547;
+      --text-secondary: #666666;
+      --text-card-heading: #333333;
+      --border: #e0e0e0;
+      --shadow-primary: rgba(0, 120, 212, 0.15);
+      --shadow-success: rgba(16, 124, 16, 0.2);
+      --shadow-success-strong: rgba(16, 124, 16, 0.4);
+
+      font-family: system-ui, 'Segoe UI', Avenir, Helvetica, Arial, sans-serif;
+      line-height: 1.5;
+      font-weight: 400;
+      color-scheme: light dark;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a1a2e;
+        --bg-card: #252540;
+        --bg-card-selected: #1a2a40;
+        --bg-card-playing: #1a3020;
+        --text: rgba(255, 255, 255, 0.87);
+        --text-secondary: rgba(255, 255, 255, 0.55);
+        --text-card-heading: rgba(255, 255, 255, 0.9);
+        --border: #3a3a5a;
+        --shadow-primary: rgba(0, 120, 212, 0.25);
+      }
+    }
+
+    body {
+      margin: 0;
+      display: flex;
+      place-items: center;
+      justify-content: center;
+      min-width: 320px;
+      min-height: 100vh;
+      background-color: var(--bg);
+      color: var(--text);
+    }
+
+    /* ── Back Link ── */
+    .back-link {
+      position: fixed;
+      top: 1rem;
+      left: 1rem;
+      z-index: 9999;
+      font-size: .75rem;
+      color: rgba(255, 255, 255, .6);
+      text-decoration: none;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      background: rgba(0, 0, 0, .5);
+      padding: .4rem .7rem;
+      border-radius: 4px;
+      backdrop-filter: blur(8px);
+      font-family: monospace;
+      transition: color .2s;
+    }
+    .back-link:hover {
+      color: rgba(255, 255, 255, .95);
+    }
+
+    /* ── Container ── */
+    .container {
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    /* ── Typography ── */
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      color: var(--primary);
+      line-height: 1.1;
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      margin-bottom: 2rem;
+      font-size: 1.1rem;
+    }
+
+    /* ── Voice Grid ── */
+    .voice-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    /* ── Voice Card ── */
+    .voice-card {
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      user-select: none;
+    }
+
+    .voice-card:hover {
+      border-color: var(--primary);
+      box-shadow: 0 4px 12px var(--shadow-primary);
+      transform: translateY(-2px);
+    }
+
+    .voice-card.selected {
+      border-color: var(--primary);
+      background: var(--bg-card-selected);
+    }
+
+    .voice-card.playing {
+      border-color: var(--success);
+      background: var(--bg-card-playing);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 4px 12px var(--shadow-success); }
+      50%      { box-shadow: 0 4px 20px var(--shadow-success-strong); }
+    }
+
+    .voice-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      line-height: 1;
+    }
+
+    .voice-card h3 {
+      font-size: 1.5rem;
+      margin: 0.5rem 0;
+      color: var(--text-card-heading);
+    }
+
+    .voice-card p {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    .playing-indicator {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: var(--success);
+      color: white;
+      padding: 0.25rem 0.75rem;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      animation: fadeIn 0.2s ease;
+    }
+
+    /* ── Confirm Button ── */
+    .confirm-button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 1rem 3rem;
+      font-size: 1.1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 600;
+      font-family: inherit;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .confirm-button:hover {
+      background: var(--primary-hover);
+      transform: scale(1.05);
+    }
+
+    .confirm-button:active {
+      transform: scale(0.98);
+    }
+
+    /* ── Confirmation Screen ── */
+    .confirmation {
+      text-align: center;
+      padding: 3rem;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .confirmation h1 {
+      color: var(--success);
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .confirmation p {
+      font-size: 1.3rem;
+      color: var(--text-card-heading);
+      margin-bottom: 2rem;
+    }
+
+    .confirmation button {
+      background: transparent;
+      border: 2px solid var(--primary);
+      color: var(--primary);
+      padding: 0.75rem 2rem;
+      font-size: 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 600;
+      font-family: inherit;
+    }
+
+    .confirmation button:hover {
+      background: var(--primary);
+      color: white;
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .voice-grid {
+        grid-template-columns: 1fr;
+      }
+      h1 {
+        font-size: 2rem;
+      }
+      .confirmation h1 {
+        font-size: 2.4rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <a class="back-link" href="../../">&larr; Back to Lab</a>
+
+  <div class="container" id="app"></div>
+
+  <script>
+    /* ── Voice Data ── */
+    const voices = [
+      {
+        id: 'voice-1',
+        name: 'Professional Voice',
+        description: 'Clear, confident, and articulate \u2014 perfect for business communications',
+        pitch: 0.85,
+        rate: 0.95
+      },
+      {
+        id: 'voice-2',
+        name: 'Friendly Voice',
+        description: 'Warm, approachable, and conversational \u2014 great for customer interactions',
+        pitch: 1.15,
+        rate: 1.05
+      }
+    ];
+
+    /* ── State ── */
+    let selectedVoice = null;
+    let playingVoice = null;
+    let confirmed = false;
+    let currentUtterance = null;
+
+    const app = document.getElementById('app');
+
+    /* ── Audio Preview via Web Speech Synthesis ── */
+    function stopSpeaking() {
+      if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+        window.speechSynthesis.cancel();
+      }
+      currentUtterance = null;
+    }
+
+    function previewVoice(voice) {
+      stopSpeaking();
+
+      const utterance = new SpeechSynthesisUtterance(voice.description);
+      utterance.pitch = voice.pitch;
+      utterance.rate = voice.rate;
+      utterance.volume = 1;
+      currentUtterance = utterance;
+
+      utterance.onend = () => {
+        playingVoice = null;
+        currentUtterance = null;
+        render();
+      };
+
+      utterance.onerror = () => {
+        playingVoice = null;
+        currentUtterance = null;
+        render();
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    /* ── Handlers ── */
+    function handleVoiceClick(voice) {
+      stopSpeaking();
+      selectedVoice = voice.id;
+      playingVoice = voice.id;
+      previewVoice(voice);
+      render();
+    }
+
+    function handleConfirm() {
+      if (selectedVoice) {
+        stopSpeaking();
+        confirmed = true;
+        playingVoice = null;
+        render();
+      }
+    }
+
+    function handleChangeSelection() {
+      confirmed = false;
+      selectedVoice = null;
+      playingVoice = null;
+      render();
+    }
+
+    /* ── Render ── */
+    function render() {
+      if (confirmed) {
+        const voice = voices.find(v => v.id === selectedVoice);
+        app.innerHTML = `
+          <div class="confirmation">
+            <h1>\u2713 Voice Enrolled</h1>
+            <p>You've selected: <strong>${voice ? voice.name : ''}</strong></p>
+            <button id="change-btn">Change Selection</button>
+          </div>
+        `;
+        document.getElementById('change-btn').addEventListener('click', handleChangeSelection);
+        return;
+      }
+
+      let cardsHTML = '';
+      voices.forEach(voice => {
+        const isSelected = selectedVoice === voice.id;
+        const isPlaying = playingVoice === voice.id;
+        let classes = 'voice-card';
+        if (isPlaying) classes += ' playing';
+        else if (isSelected) classes += ' selected';
+
+        cardsHTML += `
+          <div class="${classes}" data-id="${voice.id}">
+            <div class="voice-icon">${isPlaying ? '\uD83D\uDD0A' : '\uD83C\uDFA4'}</div>
+            <h3>${voice.name}</h3>
+            <p>${voice.description}</p>
+            ${isPlaying ? '<div class="playing-indicator">Playing...</div>' : ''}
+          </div>
+        `;
+      });
+
+      let confirmHTML = '';
+      if (selectedVoice) {
+        confirmHTML = `<button class="confirm-button" id="confirm-btn">Confirm Selection</button>`;
+      }
+
+      app.innerHTML = `
+        <h1>Voice Enrollment</h1>
+        <p class="subtitle">Select a voice to preview. Click confirm when ready.</p>
+        <div class="voice-grid">${cardsHTML}</div>
+        ${confirmHTML}
+      `;
+
+      /* Bind card clicks */
+      document.querySelectorAll('.voice-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const voice = voices.find(v => v.id === card.dataset.id);
+          if (voice) handleVoiceClick(voice);
+        });
+      });
+
+      /* Bind confirm */
+      const confirmBtn = document.getElementById('confirm-btn');
+      if (confirmBtn) {
+        confirmBtn.addEventListener('click', handleConfirm);
+      }
+    }
+
+    /* ── Init ── */
+    render();
+  </script>
+</body>
+</html>

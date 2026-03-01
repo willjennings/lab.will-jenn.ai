@@ -1,0 +1,11 @@
+{
+  "title": "Origami Express",
+  "date": "2026-02-24",
+  "dayNumber": 7,
+  "description": "A 3D origami crane from the HoloLens Holographic Academy, brought to the web with Three.js. The crane unfolds and animates in a multi-layered stage environment with orbit controls.",
+  "tags": ["3d", "interactive", "threejs", "ar-heritage"],
+  "tools": ["claude-code", "html", "css", "javascript", "threejs"],
+  "accentColor": "#C85A2C",
+  "liveUrl": null,
+  "sourceUrl": null
+}

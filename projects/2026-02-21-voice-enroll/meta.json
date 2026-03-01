@@ -1,0 +1,11 @@
+{
+  "title": "Voice Enrollment Flow",
+  "date": "2026-02-21",
+  "dayNumber": 4,
+  "description": "A voice enrollment prototype with Microsoft Fluent Design. Preview different voice options with audio playback, select your preferred voice, and confirm — a UX pattern for AI voice selection.",
+  "tags": ["voice", "prototype", "ai-ux", "design-systems"],
+  "tools": ["claude-code", "html", "css", "javascript"],
+  "accentColor": "#0078D4",
+  "liveUrl": null,
+  "sourceUrl": null
+}
